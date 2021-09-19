@@ -56,7 +56,6 @@ namespace MacaroonCoreTests
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.Is<string>(s => s.Equals("user == admin")))).Returns(true);
 
-			// TODO: we fucked something up here. 
 			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(true));

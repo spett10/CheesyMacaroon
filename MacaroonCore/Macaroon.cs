@@ -65,9 +65,9 @@ namespace MacaroonCore
 
 		public bool Verify(Macaroon authorisingMacaroon, List<Macaroon> dischargeMacaroon, IPredicateVerifier predicateVerifier, byte[] key)
 		{
-			using var rootHmac = CreateHMAC(key);
-			var rootSignature = rootHmac.ComputeHash(authorisingMacaroon.IdPayload);
-			var currentKey = key;
+			var hmac = CreateHMAC(key);
+			var rootSignature = hmac.ComputeHash(authorisingMacaroon.IdPayload);
+			var currentKey = rootSignature;
 
 			foreach(var caveat in Caveats)
 			{
@@ -76,11 +76,15 @@ namespace MacaroonCore
 					if (!predicateVerifier.Verify(predicate)) return false;
 				}
 
-				rootHmac.Key = currentKey;
-				currentKey = rootHmac.ComputeHash(caveat.Payload);
+				hmac.Key = currentKey;
+				currentKey = hmac.ComputeHash(caveat.Payload);
 			}
 
+			/* We verify the chain "at once" at the end by checking the final signature is as expected. */
+			/* That implies that all preceeding signatures were also correct */
 			if (!currentKey.TimeConstantCompare(Signature)) return false;
+
+			hmac.Dispose();
 
 			return true;
 		}
