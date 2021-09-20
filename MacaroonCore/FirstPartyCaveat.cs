@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace MacaroonCore
 {
@@ -9,9 +10,15 @@ namespace MacaroonCore
 			VerificationId = "0";
 
 			Location = location;
-			CaveatId = predicate; //First class caveats has the predicate as their Id. 
 
+			//First class caveats has the predicate as their Id.
+			CaveatId = predicate;
 			Predicates = new List<string>() { CaveatId };
 		}
+
+		public override byte[] Payload() =>
+								Encode.DefaultDecoder(CaveatId)
+								.Concat(Encode.DefaultDecoder(VerificationId))
+								.ToArray();
 	}
 }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace MacaroonCore
 {
@@ -9,6 +8,11 @@ namespace MacaroonCore
 		public ThirdPartyCaveat(List<string> predicates, byte[] caveatRootKey)
 		{
 
+		}
+
+		public override byte[] Payload()
+		{
+			throw new NotImplementedException();
 		}
 	}
 }

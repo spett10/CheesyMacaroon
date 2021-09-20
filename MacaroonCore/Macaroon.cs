@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,7 +8,7 @@ namespace MacaroonCore
 	{
 		public string Location { get; set; }
 		public string Id { get; set; }
-		public List<FirstPartyCaveat> Caveats { get; set; } //TODO: find some design pattern so we can have this as just Caveat and dynamic dispatch on first party or third party. 
+		public List<Caveat> Caveats { get; set; }
 		public byte[] Signature { get; set; }
 
 		private Macaroon()
@@ -21,7 +20,7 @@ namespace MacaroonCore
 		{
 			Location = location;
 			Id = id;
-			Caveats = new List<FirstPartyCaveat>();
+			Caveats = new List<Caveat>();
 
 			using var hmac = CreateHMAC(key);
 			var data = Encoding.UTF8.GetBytes(Id);
@@ -41,13 +40,13 @@ namespace MacaroonCore
 			};
 		}
 
-		private Macaroon AddCaveatHelper(FirstPartyCaveat caveat)
+		private Macaroon AddCaveatHelper(Caveat caveat)
 		{
 			Caveats.Add(caveat);
 
 			using (var hmac = CreateHMAC(Signature))
 			{
-				Signature = hmac.ComputeHash(caveat.Payload);
+				Signature = hmac.ComputeHash(caveat.Payload());
 			}
 
 			return this;
@@ -58,7 +57,7 @@ namespace MacaroonCore
 			return new HMACSHA256(key);
 		}
 
-		public Macaroon AddCaveat(FirstPartyCaveat caveat)
+		public Macaroon AddCaveat(Caveat caveat)
 		{
 			return Copy().AddCaveatHelper(caveat);
 		}
@@ -77,7 +76,7 @@ namespace MacaroonCore
 				}
 
 				hmac.Key = currentKey;
-				currentKey = hmac.ComputeHash(caveat.Payload);
+				currentKey = hmac.ComputeHash(caveat.Payload());
 			}
 
 			/* We verify the chain "at once" at the end by checking the final signature is as expected. */
