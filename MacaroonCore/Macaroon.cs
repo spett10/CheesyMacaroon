@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace MacaroonCore
 {
@@ -23,11 +22,11 @@ namespace MacaroonCore
 			Caveats = new List<Caveat>();
 
 			using var hmac = CreateHMAC(key);
-			var data = Encoding.UTF8.GetBytes(Id);
+			var data = Encode.DefaultStringDecoder(Id);
 			Signature = hmac.ComputeHash(data);
 		}
 
-		public byte[] IdPayload => Encoding.UTF8.GetBytes(Id);
+		public byte[] IdPayload => Encode.DefaultStringDecoder(Id);
 
 		private Macaroon Copy()
 		{
@@ -70,11 +69,8 @@ namespace MacaroonCore
 
 			foreach(var caveat in Caveats)
 			{
-				foreach(var predicate in caveat.Predicates)
-				{
-					if (!predicateVerifier.Verify(predicate)) return false;
-				}
-
+			    if (!predicateVerifier.Verify(caveat.Predicate)) return false;
+	
 				hmac.Key = currentKey;
 				currentKey = hmac.ComputeHash(caveat.Payload());
 			}

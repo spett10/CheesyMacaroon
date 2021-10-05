@@ -13,12 +13,12 @@ namespace MacaroonCore
 
 			//First class caveats has the predicate as their Id.
 			CaveatId = predicate;
-			Predicates = new List<string>() { CaveatId };
+			Predicate = CaveatId;
 		}
 
 		public override byte[] Payload() =>
-								Encode.DefaultDecoder(CaveatId)
-								.Concat(Encode.DefaultDecoder(VerificationId))
+								Encode.DefaultStringDecoder(CaveatId)
+								.Concat(Encode.DefaultStringDecoder(VerificationId))
 								.ToArray();
 	}
 }

@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace MacaroonCore
 {
@@ -6,6 +7,10 @@ namespace MacaroonCore
 	{
 		public delegate byte[] StringDecoder(string str);
 
-		public static StringDecoder DefaultDecoder => Encoding.UTF8.GetBytes; //TODO: allow this to be set?
+		public delegate string ByteEncoder(byte[] bytes);
+
+		public static StringDecoder DefaultStringDecoder => Encoding.UTF8.GetBytes; //TODO: allow this to be set?
+
+		public static ByteEncoder DefaultByteEncoder => Convert.ToBase64String;
 	}
 }
