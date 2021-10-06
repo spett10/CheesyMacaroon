@@ -5,9 +5,11 @@ namespace MacaroonCore
 {
 	public class FirstPartyCaveat : Caveat
 	{
+		public static string FirstPartyCaveatIndicator = "0";
+
 		public FirstPartyCaveat(string predicate, string location = null)
 		{
-			VerificationId = "0";
+			VerificationId = FirstPartyCaveatIndicator;
 
 			Location = location;
 

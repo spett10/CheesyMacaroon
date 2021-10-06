@@ -54,12 +54,12 @@ namespace MacaroonCoreTests
 
 			var caveat = new FirstPartyCaveat("user == admin");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(caveat);
+			authorisingMacaroon.AddFirstPartyCaveat(caveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.Is<string>(s => s.Equals("user == admin")))).Returns(true);
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(true));
 		}
@@ -74,12 +74,12 @@ namespace MacaroonCoreTests
 
 			var caveat = new FirstPartyCaveat("user == admin");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(caveat);
+			authorisingMacaroon.AddFirstPartyCaveat(caveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.Is<string>(s => s.Equals("user == admin")))).Returns(false);
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
@@ -96,14 +96,14 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+								.AddFirstPartyCaveat(ipCaveat)
+								.AddFirstPartyCaveat(expCaveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(true));
 		}
@@ -120,40 +120,13 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+								.AddFirstPartyCaveat(ipCaveat)
+								.AddFirstPartyCaveat(expCaveat);
 
 			var verifier = new VerifierMock("exp 1620000113");
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifier, key);
-
-			Assert.That(valid, Is.EqualTo(false));
-		}
-
-		[Test]
-		public void Verify_WrongAuthorisingMacaroon_ShouldNotVerify()
-		{
-			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
-
-			var authorisingMacaroon = new Macaroon(key, id);
-
-			var adminCaveat = new FirstPartyCaveat("user = admin");
-			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
-			var expCaveat = new FirstPartyCaveat("exp 1620000113");
-
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
-
-			var verifierMock = new Mock<IPredicateVerifier>();
-			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
-
-			var otherId = Guid.NewGuid().ToString();
-			var someOtherMacaroon = new Macaroon(key, otherId);
-
-			var valid = delegatedMacaroon.Verify(someOtherMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifier, key);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
@@ -170,9 +143,9 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+								.AddFirstPartyCaveat(ipCaveat)
+								.AddFirstPartyCaveat(expCaveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
@@ -180,7 +153,7 @@ namespace MacaroonCoreTests
 			var someOtherKey = KeyGen();
 			var someOtherMacaroon = new Macaroon(someOtherKey, id);
 
-			var valid = delegatedMacaroon.Verify(someOtherMacaroon, new List<Macaroon>(), verifierMock.Object, someOtherKey);
+			var valid = authorisingMacaroon.Verify(someOtherMacaroon, new List<Macaroon>(), verifierMock.Object, someOtherKey);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
@@ -197,15 +170,15 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+								.AddFirstPartyCaveat(ipCaveat)
+								.AddFirstPartyCaveat(expCaveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
 
-			delegatedMacaroon.Signature = new byte[32]; //The odds of the correct signature being this uninitialized memory is not something we worry about. 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			authorisingMacaroon.Signature = new byte[32]; //The odds of the correct signature being this uninitialized memory is not something we worry about. 
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
@@ -222,16 +195,16 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+							   .AddFirstPartyCaveat(ipCaveat)
+							   .AddFirstPartyCaveat(expCaveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
 
-			delegatedMacaroon.Caveats = delegatedMacaroon.Caveats.Skip(1).ToList();
+			authorisingMacaroon.Caveats = authorisingMacaroon.Caveats.Skip(1).ToList();
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
@@ -248,17 +221,17 @@ namespace MacaroonCoreTests
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
 			var expCaveat = new FirstPartyCaveat("exp 1620000113");
 
-			var delegatedMacaroon = authorisingMacaroon.AddCaveat(adminCaveat)
-													   .AddCaveat(ipCaveat)
-													   .AddCaveat(expCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat)
+								.AddFirstPartyCaveat(ipCaveat)
+								.AddFirstPartyCaveat(expCaveat);
 
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
 
 			/* We try and remove the admin requirement, because we're not an admin */
-			delegatedMacaroon.Caveats[0] = new FirstPartyCaveat("user = trial");
+			authorisingMacaroon.Caveats[0] = new FirstPartyCaveat("user = trial");
 
-			var valid = delegatedMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, new List<Macaroon>(), verifierMock.Object, key);
 
 			Assert.That(valid, Is.EqualTo(false));
 		}
