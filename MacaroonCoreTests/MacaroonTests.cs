@@ -275,7 +275,6 @@ namespace MacaroonCoreTests
 
 			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
 
-			/* TODO: This wont currently work - we dont handle decryption when we have a discharge macaroon to obtain the rootkey and go from there */
 			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
 			Assert.That(valid, Is.EqualTo(true));
 		}

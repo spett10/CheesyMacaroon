@@ -45,10 +45,13 @@ namespace MacaroonCore
 			Id = id;
 			Caveats = new List<Caveat>();
 
+			/* Set Discharge before we get IdPayLoad, there is a temporal dependence there. TODO fix this */
+			Discharge = isDischarge;
+
 			using var hmac = CreateHMAC(key);
 			Signature = hmac.ComputeHash(IdPayload);
 
-			Discharge = isDischarge;
+
 		}
 
 		public byte[] IdPayload { 
@@ -100,10 +103,12 @@ namespace MacaroonCore
 			return this;
 		}
 
-		/* Hash the signature at the end to prevent further chaining */
+		/* Hash the signature at the end to prevent further chaining. */
+		/* We always expect this to have been done for a discharged macaroon, so noone can continue if we did this, we only expect it at the end. */
+		/* So if you somehow obtain this discharge macaroon, you cannot continue it after Finalize since Verify will then fail */
 		public Macaroon Finalize()
 		{
-			this.Signature = SymmetricCryptography.Hash(this.Signature);
+			Signature = SymmetricCryptography.Hash(Signature);
 
 			return this;
 		}
@@ -151,9 +156,11 @@ namespace MacaroonCore
 
 		public bool Verify(Macaroon authorisingMacaroon, List<Macaroon> dischargeMacaroons, IPredicateVerifier predicateVerifier, byte[] key)
 		{
+			byte[] currentKey;
+
 			var hmac = CreateHMAC(key);
 			var rootSignature = hmac.ComputeHash(this.IdPayload);
-			var currentKey = rootSignature;
+			currentKey = rootSignature;
 
 			foreach(var caveat in Caveats)
 			{
@@ -166,23 +173,25 @@ namespace MacaroonCore
 					var discharger = dischargeMacaroons.FirstOrDefault(x => x.Id.Equals(caveat.CaveatId));
 
 					/* TODO: Should we throw exceptions instead of true/false? Debugging is hard when you dont know that, e.g., you didnt find the discharge macaroon */
-					if (discharger == null) 
+					if (discharger == null)
 					{
 						return false;
 					}
-					
+
 					// The caveat root key was encrypted with the current signature, and is stored in the verification id (duh). 
-					var caveatRootKey = SymmetricCryptography.AesGcmDecrypt(Signature, Encode.DefaultByteDecoder(caveat.VerificationId));
+					var caveatRootKey = SymmetricCryptography.AesGcmDecrypt(currentKey, Encode.DefaultByteDecoder(caveat.VerificationId));
 
 					// Recursively verify the discharge macaroon. It itself could have third party caveats, and on and on we go. 
 					//TODO: what authorizing macaroon do we send in below. Us or the one above? 
 					//CURRENT SOLUTION: It seems that we always use the root auth macaroon in recursive calls, TM. And when calling outermost, TM.Verify(TM.. 
-					if (!discharger.Verify(authorisingMacaroon, dischargeMacaroons, predicateVerifier, caveatRootKey)) 
-					{ 
-						return false; 
+					// UPDATE i think it should be *this*, since a discharge macaroon itself can have other 3rd party caveats, and then the discharge macaroon should authorize the next level discharge? Or not? 
+					// The argument is a bit weird in the first call, since it will always be equal to this. But in recursive calls, this will be a discharge, and auth will be the old this. 
+					// So we cant remove it from arg. 
+					if (!discharger.Verify(this, dischargeMacaroons, predicateVerifier, caveatRootKey))
+					{
+						return false;
 					}
-
-				}			    
+				}		    
 	
 				hmac.Key = currentKey;
 				currentKey = hmac.ComputeHash(caveat.Payload());
@@ -193,8 +202,9 @@ namespace MacaroonCore
 
 			if (Discharge)
 			{
-				/* If the current macaroon we are currently verifying is a discharge macaroon, we expect its signature to be bound to authorizing macaroon like so */
-				currentKey = authorisingMacaroon.BindForRequest(currentKey);
+				/* If the current macaroon we are currently verifying is a discharge macaroon, we expect that it was finalized after all predicates, and then bound for the authorizing macaroon. */
+				var finalized = SymmetricCryptography.Hash(currentKey);
+				currentKey = authorisingMacaroon.BindForRequest(finalized);
 			}
 
 			if (!currentKey.TimeConstantCompare(Signature)) return false;
