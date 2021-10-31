@@ -11,27 +11,14 @@ namespace MacaroonCoreTests
 {
 	public class MacaroonTests
 	{
-		[SetUp]
-		public void Setup()
-		{
-		}
-
-		private byte[] KeyGen()
-		{
-			var csprng = RandomNumberGenerator.Create();
-			var key = new byte[32];
-			csprng.GetBytes(key);
-			return key;
-		}
-
 		[Test]
 		public void CreateMacaroon_ShouldHaveValidMacOverId()
 		{
 			var key = KeyGen();
 
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var macaroon = new Macaroon(key, id);
+			var macaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var expectedPayLoad = id;
 
@@ -48,9 +35,9 @@ namespace MacaroonCoreTests
 		public void Verify_VerifierReturnsTrue_ShouldVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
-			
-			var authorisingMacaroon = new Macaroon(key, id);
+			var id = IdGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var caveat = new FirstPartyCaveat("user == admin");
 
@@ -68,9 +55,9 @@ namespace MacaroonCoreTests
 		public void Verify_VerifierReturnsFalse_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var caveat = new FirstPartyCaveat("user == admin");
 
@@ -88,9 +75,9 @@ namespace MacaroonCoreTests
 		public void Verify_MultipleCaveats_AllValid_ShouldVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -112,9 +99,9 @@ namespace MacaroonCoreTests
 		public void Verify_MultipleCaveats_OneOfThemInvalid_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -135,9 +122,9 @@ namespace MacaroonCoreTests
 		public void Verify_WrongKey_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -151,7 +138,7 @@ namespace MacaroonCoreTests
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
 
 			var someOtherKey = KeyGen();
-			var someOtherMacaroon = new Macaroon(someOtherKey, id);
+			var someOtherMacaroon = Macaroon.CreateAuthorisingMacaroon(someOtherKey, id);
 
 			var valid = authorisingMacaroon.Verify(someOtherMacaroon, new List<Macaroon>(), verifierMock.Object, someOtherKey);
 
@@ -162,9 +149,9 @@ namespace MacaroonCoreTests
 		public void Verify_AlterSignature_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -187,9 +174,9 @@ namespace MacaroonCoreTests
 		public void Verify_RemoveCaveat_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -213,9 +200,9 @@ namespace MacaroonCoreTests
 		public void Verify_AlterCaveat_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			var id = Guid.NewGuid().ToString();
+			var id = IdGen();
 
-			var authorisingMacaroon = new Macaroon(key, id);
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key, id);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
 			var ipCaveat = new FirstPartyCaveat("ip = 198.162.0.1");
@@ -238,7 +225,78 @@ namespace MacaroonCoreTests
 
 		#endregion
 
+		#region ThirdPartyCaveats 
+
+		[Test]
+		public void Verify_CreateDischargeMacaroon_PredicateNotValid_ShouldThrow()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(false);
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			Assert.Throws<ArgumentException>(() => Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object));
+		}
+
+		[Test]
+		public void Verify_CreateDischargeMacaroon_ValidPredicate_ShouldVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+			
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			/* TODO: This wont currently work - we dont handle decryption when we have a discharge macaroon to obtain the rootkey and go from there */
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
+			Assert.That(valid, Is.EqualTo(true));
+		}
+
+		#endregion
+
+
 		#region Helpers
+
+		private byte[] KeyGen()
+		{
+			var csprng = RandomNumberGenerator.Create();
+			var key = new byte[32];
+			csprng.GetBytes(key);
+			return key;
+		}
+
+		private string IdGen()
+		{
+			return Guid.NewGuid().ToString();
+		}
 
 		internal class VerifierMock : IPredicateVerifier
 		{

@@ -1,10 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 
 
 namespace MacaroonCore
 {
-	internal class Symmetric
+	internal class SymmetricCryptography
 	{
 		private static byte[] Join(byte[] nonce, byte[] ciphertext, byte[] tag)
 		{
@@ -21,6 +22,20 @@ namespace MacaroonCore
 			var ciphertext = standardFormat.Skip(nonce.Length).Take(ciphertextLength).ToArray();
 
 			return (nonce, ciphertext, tag);
+		}
+
+		internal static byte[] Hash(List<byte[]> elements)
+		{
+			var fullInput = elements.SelectMany(x => x).ToArray();
+
+			using var sha256 = SHA256.Create();
+			return sha256.ComputeHash(fullInput);
+		}
+
+		internal static byte[] Hash(byte[] data)
+		{
+			using var sha256 = SHA256.Create();
+			return sha256.ComputeHash(data);
 		}
 
 		internal static byte[] AesGcmEncrypt(byte[] key, byte[] plaintext)
