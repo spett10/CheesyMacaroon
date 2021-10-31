@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Security.Cryptography;
 
-
 namespace MacaroonCore
 {
 	internal class SymmetricCryptography

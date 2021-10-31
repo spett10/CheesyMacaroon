@@ -228,7 +228,7 @@ namespace MacaroonCoreTests
 		#region ThirdPartyCaveats 
 
 		[Test]
-		public void Verify_CreateDischargeMacaroon_PredicateNotValid_ShouldThrow()
+		public void CreateDischargeMacaroon_PredicateNotValid_ShouldThrow()
 		{
 			var authorisingRootKey = KeyGen();
 			var authId = IdGen();
@@ -239,6 +239,7 @@ namespace MacaroonCoreTests
 			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
 			var thirdPartyPredicate = "userID = 1234567890";
 
+			/* The verifier will fail the predicate, so we cannot issue a discharge for the predicate. */
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(false);
 
@@ -248,7 +249,7 @@ namespace MacaroonCoreTests
 		}
 
 		[Test]
-		public void Verify_CreateDischargeMacaroon_ValidPredicate_ShouldVerify()
+		public void AddThirdPartyCaveat_CaveatIdShouldBeEncryptionOfRootKeyAndPredicateUnderThirdPartyKey()
 		{
 			var authorisingRootKey = KeyGen();
 			var authId = IdGen();
@@ -259,8 +260,67 @@ namespace MacaroonCoreTests
 			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
 			var thirdPartyPredicate = "userID = 1234567890";
 
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var caveatIdBytes = Encode.DefaultByteDecoder(caveatId);
+			var plaintext = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, caveatIdBytes);
+
+			var rootKey = plaintext.Take(32).ToArray();
+			var predicate = Encode.DefaultStringEncoder(plaintext.Skip(32).ToArray());
+
+			Assert.That(rootKey, Is.EqualTo(caveatRootKey));
+			Assert.That(predicate, Is.EqualTo(thirdPartyPredicate));
+		}
+
+		[Test]
+		public void Verify_ThirdPartyCaveat_InvalidPredicate_ShouldNotVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
 			var verifierMock = new Mock<IPredicateVerifier>();
 			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			/* Update verifier to be wrong */
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(false);
+
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
+			Assert.That(valid, Is.EqualTo(false));
+		}
+
+		[Test]
+		public void Verify_ThirdPartyCaveat_With_FirstPartyCaveats_ValidPredicate_ShouldVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
 
 			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
 
@@ -274,6 +334,99 @@ namespace MacaroonCoreTests
 			dischargeMacaroon.Finalize();
 
 			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
+			Assert.That(valid, Is.EqualTo(true));
+		}
+
+		[Test]
+		public void Verify_FirstPartyCaveats_FollowedBy_ThirdPartyCaveat_ValidPredicates_ShouldVerify()
+		{
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			/* Create auth with some first party caveats */
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var serverCaveat = new FirstPartyCaveat("datacenter = Internal");
+			var lanAsAFactorCaveat = new FirstPartyCaveat("lan = true");
+
+			authorisingMacaroon.AddFirstPartyCaveat(serverCaveat);
+			authorisingMacaroon.AddFirstPartyCaveat(lanAsAFactorCaveat);
+
+			/* Create third party caveat */			
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			/* Add it */
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
+			Assert.That(valid, Is.EqualTo(true));
+		}
+
+		[Test]
+		public void Verify_ThirdPartyCaveat_With_ThirdPartyCaveat_ValidPredicates_ShouldVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var thirdPartyCaveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+			
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, thirdPartyCaveatRootKey, thirdPartyLocation, thirdPartyKey, out var userIdMacaroonCaveatId);
+			var userIdDischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, userIdMacaroonCaveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			userIdDischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			userIdDischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+
+			/* Create another discharge macaroon and attach it to the above */
+			var fourthPartyKey = KeyGen();
+			var fourthPartyLocation = "ecris.eu";
+			var fourthPartyCaveatRootKey = KeyGen();
+			var fourthPartyPredicate = "CriminalRecored = 0";
+
+			userIdDischargeMacaroon.AddThirdPartyCaveat(fourthPartyPredicate, fourthPartyCaveatRootKey, fourthPartyLocation, fourthPartyKey, out var criminalRecoredMacaroonCaveatId);
+			var criminalRecordDischargeMacaroon = Macaroon.CreateDischargeMacaroon(fourthPartyKey, criminalRecoredMacaroonCaveatId, fourthPartyLocation, verifierMock.Object);
+
+			/* Finalize the userid discharge since we added last caveat above */
+			userIdDischargeMacaroon.Finalize();
+
+			var nationalityCaveat = new FirstPartyCaveat("country = dk");
+			var residenceCaveat = new FirstPartyCaveat("residency = dk");
+
+			criminalRecordDischargeMacaroon.AddFirstPartyCaveat(nationalityCaveat);
+			criminalRecordDischargeMacaroon.AddFirstPartyCaveat(residenceCaveat);
+			criminalRecordDischargeMacaroon.Finalize();
+
+			var sealedDischargeAuthorising = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { userIdDischargeMacaroon });
+			var sealedDischargeUserId = userIdDischargeMacaroon.PrepareForRequest(new List<Macaroon> { criminalRecordDischargeMacaroon });
+
+			var sealedDischargeMacaroons = sealedDischargeAuthorising.Concat(sealedDischargeUserId).ToList();
 
 			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
 			Assert.That(valid, Is.EqualTo(true));
