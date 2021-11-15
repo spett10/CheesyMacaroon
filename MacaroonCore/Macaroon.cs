@@ -25,7 +25,7 @@ namespace MacaroonCore
 			/* We are given caveatId, which is Enc(ThirdPartyKey, RootKey || Predicate ) */
 			/* So to get started we must decrypt it to get the rootkey for the macaroon and the base predicate */
 
-			var payload = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, Encode.DefaultByteDecoder(caveatId));
+			var payload = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, Encode.DefaultByteDecoder(caveatId), Encode.DefaultStringDecoder(location));
 
 			/* Payload is RN || predicate, so we remove the first part since its supposed to be a certain length. TODO: make this not implicit */
 			var rootKey = payload.Take(32).ToArray();
@@ -178,8 +178,19 @@ namespace MacaroonCore
 						return false;
 					}
 
-					// The caveat root key was encrypted with the current signature, and is stored in the verification id (duh). 
-					var caveatRootKey = SymmetricCryptography.AesGcmDecrypt(currentKey, Encode.DefaultByteDecoder(caveat.VerificationId));
+					byte[] caveatRootKey;
+					try
+					{
+						// The caveat root key was encrypted with the current signature, and is stored in the verification id (duh). 
+						caveatRootKey = SymmetricCryptography.AesGcmDecrypt(currentKey,
+																				Encode.DefaultByteDecoder(caveat.VerificationId),
+																				Encode.DefaultStringDecoder(discharger.Location));
+					}
+					catch (Exception)
+					{
+						return false;
+					}
+
 
 					// Recursively verify the discharge macaroon. It itself could have third party caveats, and on and on we go. 
 					//TODO: what authorizing macaroon do we send in below. Us or the one above? 

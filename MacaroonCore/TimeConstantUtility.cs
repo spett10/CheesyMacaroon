@@ -22,7 +22,7 @@
 				mask |= temp;
 			}
 
-			return mask == byte.MinValue; //TODO: doesnt THIS leak? if it compares bitwise. 
+			return mask == byte.MinValue;
 		}
 	}
 }

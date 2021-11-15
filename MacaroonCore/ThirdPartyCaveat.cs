@@ -9,11 +9,16 @@ namespace MacaroonCore
 
 		public ThirdPartyCaveat(string predicate, byte[] caveatRootKey, byte[] embeddingMacaroonSignature, byte[] thirdPartyKey, string location)
 		{
+			// Use location as AAD for domain separation. 
+			var locationBytes = Encode.DefaultStringDecoder(location);
+
 			// Encryption of the caveat root key using the current signature from the embedding macaroon. 
 			// This enables issuer of macaroon to later decrypt this to obtain caveatRootKey - noone else can obtain it from the macaroon.
 			// This caveatRootKey is needed to verify the HMAC on the discharge macaroon for the third party caveat. 
 			// Storing it here means the Caveat is self-contained in this regard.
-			_verificationId = SymmetricCryptography.AesGcmEncrypt(embeddingMacaroonSignature, caveatRootKey);
+			_verificationId = SymmetricCryptography.AesGcmEncrypt(embeddingMacaroonSignature, 
+																  caveatRootKey, 
+																  locationBytes);
 
 			VerificationId = Encode.DefaultByteEncoder(_verificationId);
 
@@ -22,7 +27,8 @@ namespace MacaroonCore
 			// Given the above encryption stored in VerificationId, the issuer can then obtain the rootkey again and use it to verify the discharge macaroon. 
 			// The discharge macaroon will have this same identifier as its root element, and that is how we can find the discharge macaroon given a third party caveat.
 			_caveatId = SymmetricCryptography.AesGcmEncrypt(thirdPartyKey,
-												caveatRootKey.Concat(Encode.DefaultStringDecoder(predicate)).ToArray());
+															caveatRootKey.Concat(Encode.DefaultStringDecoder(predicate)).ToArray(),
+															locationBytes);  
 
 			CaveatId = Encode.DefaultByteEncoder(_caveatId); 
 

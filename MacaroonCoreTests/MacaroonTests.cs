@@ -263,7 +263,7 @@ namespace MacaroonCoreTests
 			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
 
 			var caveatIdBytes = Encode.DefaultByteDecoder(caveatId);
-			var plaintext = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, caveatIdBytes);
+			var plaintext = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, caveatIdBytes, Encode.DefaultStringDecoder(thirdPartyLocation));
 
 			var rootKey = plaintext.Take(32).ToArray();
 			var predicate = Encode.DefaultStringEncoder(plaintext.Skip(32).ToArray());
@@ -430,6 +430,41 @@ namespace MacaroonCoreTests
 
 			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
 			Assert.That(valid, Is.EqualTo(true));
+		}
+
+		[Test]
+		public void Verify_AlterLocation_ShouldNotVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authId = IdGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey, authId);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			/* Alter Location which is aad */
+			sealedDischargeMacaroons.ForEach(x => x.Location += "Wrong");
+
+			var valid = authorisingMacaroon.Verify(authorisingMacaroon, sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
+			Assert.That(valid, Is.EqualTo(false));
 		}
 
 		#endregion
