@@ -25,18 +25,17 @@ namespace MacaroonCore
 			/* We are given caveatId, which is Enc(ThirdPartyKey, RootKey || Predicate ) */
 			/* So to get started we must decrypt it to get the rootkey for the macaroon and the base predicate */
 
-			var payload = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, Encode.DefaultByteDecoder(caveatId), Encode.DefaultStringDecoder(location));
+			var payloadRaw = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, Encode.DefaultByteDecoder(caveatId), Encode.DefaultStringDecoder(location));
 
-			/* Payload is RN || predicate, so we remove the first part since its supposed to be a certain length. TODO: make this not implicit */
-			var rootKey = payload.Take(32).ToArray();
+			var payload = new DischargePayload(payloadRaw);
 
-			var predicate = Encode.DefaultStringEncoder(payload.Skip(32).ToArray());
+			var predicate = Encode.DefaultStringEncoder(payload.Predicate);
 			if(!predicateVerifier.Verify(predicate))
 			{
 				throw new ArgumentException("Predicate could not be verified, cannot create discharge macaroon.");
 			}
 
-			return new Macaroon(rootKey, caveatId, true, location);
+			return new Macaroon(payload.RootKey, caveatId, true, location);
 		}
 
 		private Macaroon(byte[] key, string id, bool isDischarge = false, string location = null)

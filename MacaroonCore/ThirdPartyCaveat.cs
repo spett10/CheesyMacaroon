@@ -9,7 +9,7 @@ namespace MacaroonCore
 
 		public ThirdPartyCaveat(string predicate, byte[] caveatRootKey, byte[] embeddingMacaroonSignature, byte[] thirdPartyKey, string location)
 		{
-			// Use location as AAD for domain separation. 
+			// Use location as AAD for domain separation.
 			var locationBytes = Encode.DefaultStringDecoder(location);
 
 			// Encryption of the caveat root key using the current signature from the embedding macaroon. 

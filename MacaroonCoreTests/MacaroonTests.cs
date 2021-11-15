@@ -265,8 +265,8 @@ namespace MacaroonCoreTests
 			var caveatIdBytes = Encode.DefaultByteDecoder(caveatId);
 			var plaintext = SymmetricCryptography.AesGcmDecrypt(thirdPartyKey, caveatIdBytes, Encode.DefaultStringDecoder(thirdPartyLocation));
 
-			var rootKey = plaintext.Take(32).ToArray();
-			var predicate = Encode.DefaultStringEncoder(plaintext.Skip(32).ToArray());
+			var rootKey = plaintext.Take(SymmetricCryptography.AesKeySizeInBytes).ToArray();
+			var predicate = Encode.DefaultStringEncoder(plaintext.Skip(SymmetricCryptography.AesKeySizeInBytes).ToArray());
 
 			Assert.That(rootKey, Is.EqualTo(caveatRootKey));
 			Assert.That(predicate, Is.EqualTo(thirdPartyPredicate));

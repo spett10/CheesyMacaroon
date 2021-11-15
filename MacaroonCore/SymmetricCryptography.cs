@@ -6,6 +6,7 @@ namespace MacaroonCore
 {
 	internal class SymmetricCryptography
 	{
+		public static int AesKeySizeInBytes = 32;
 		private static byte[] Join(byte[] nonce, byte[] ciphertext, byte[] tag)
 		{
 			var standardFormat = nonce.Concat(ciphertext).Concat(tag).ToArray();
