@@ -149,7 +149,7 @@ namespace MacaroonCore
 				signature
 			};
 
-			return SymmetricCryptography.Hash(elementsToHash);
+			return SymmetricCryptography.CanonicalizedHash(elementsToHash);
 		}
 
 

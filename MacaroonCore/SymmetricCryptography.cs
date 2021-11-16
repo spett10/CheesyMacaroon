@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 
@@ -24,9 +25,23 @@ namespace MacaroonCore
 			return (nonce, ciphertext, tag);
 		}
 
-		internal static byte[] Hash(List<byte[]> elements)
+		private static byte[] IntToByte(int i)
 		{
-			var fullInput = elements.SelectMany(x => x).ToArray();
+			var bytes = BitConverter.GetBytes(i);
+			if (BitConverter.IsLittleEndian)
+			{
+				Array.Reverse(bytes);
+			}
+			return bytes;
+		}
+
+		internal static byte[] CanonicalizedHash(List<byte[]> elements)
+		{
+			// Prefix input with number of elements, and each element with its length. Helps protect against Canonicalization Attacks.
+			var countBytes = IntToByte(elements.Count);
+			var fullInput = countBytes.Concat(
+										elements.SelectMany(x => IntToByte(x.Length).Concat(x)))
+										.ToArray();
 
 			using var sha256 = SHA256.Create();
 			return sha256.ComputeHash(fullInput);
