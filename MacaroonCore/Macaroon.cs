@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Security.Cryptography;
 using System;
+using MacaroonCore.Model;
+using MacaroonCore.Exceptions;
 
 namespace MacaroonCore
 {
@@ -152,8 +154,14 @@ namespace MacaroonCore
 			return SymmetricCryptography.CanonicalizedHash(elementsToHash);
 		}
 
+		public MacaroonValidationResult Validate(List<Macaroon> dischargeMacaroons, IPredicateVerifier predicateVerifier, byte[] key)
+		{
+			// A root macaroon that is at the top of the macaroon tree will have itself as the authorising macaroon, so this method is just nicer to use in that scenario,
+			// rather than exposing the recursive method that takes the authorising macaroon as an argument. 
+			return Validate(this, dischargeMacaroons, predicateVerifier, key);
+		}
 
-		public bool Verify(Macaroon authorisingMacaroon, List<Macaroon> dischargeMacaroons, IPredicateVerifier predicateVerifier, byte[] key)
+		internal MacaroonValidationResult Validate(Macaroon authorisingMacaroon, List<Macaroon> dischargeMacaroons, IPredicateVerifier predicateVerifier, byte[] key)
 		{
 			byte[] currentKey;
 
@@ -165,16 +173,23 @@ namespace MacaroonCore
 			{
 				if (IsFirstPartyCaveat(caveat))
 				{
-					if (!predicateVerifier.Verify(caveat.Predicate)) return false;
+					if (!predicateVerifier.Verify(caveat.Predicate)) return new MacaroonValidationResult
+					{
+						IsValid = false,
+						MacaroonValidationException = new InvalidPredicateException() //Predicate verifier can log as needed if they wish to do so.
+					};
 				}
 				else
 				{
 					var discharger = dischargeMacaroons.FirstOrDefault(x => x.Id.Equals(caveat.CaveatId));
 
-					/* TODO: Should we throw exceptions instead of true/false? Debugging is hard when you dont know that, e.g., you didnt find the discharge macaroon */
 					if (discharger == null)
 					{
-						return false;
+						return new MacaroonValidationResult
+						{
+							IsValid = false,
+							MacaroonValidationException = new DischargeMacaroonNotFoundException($"Did not find discharge for {nameof(caveat.CaveatId)} {caveat.CaveatId}")
+						};
 					}
 
 					byte[] caveatRootKey;
@@ -182,24 +197,26 @@ namespace MacaroonCore
 					{
 						// The caveat root key was encrypted with the current signature, and is stored in the verification id (duh). 
 						caveatRootKey = SymmetricCryptography.AesGcmDecrypt(currentKey,
-																				Encode.DefaultByteDecoder(caveat.VerificationId),
-																				Encode.DefaultStringDecoder(discharger.Location));
+																			Encode.DefaultByteDecoder(caveat.VerificationId),
+																			Encode.DefaultStringDecoder(discharger.Location));
 					}
 					catch (Exception)
 					{
-						return false;
+						return new MacaroonValidationResult
+						{
+							IsValid = false,
+							MacaroonValidationException = new DischargeMacaroonAuthenticityException()
+						};
 					}
 
 
 					// Recursively verify the discharge macaroon. It itself could have third party caveats, and on and on we go. 
-					//TODO: what authorizing macaroon do we send in below. Us or the one above? 
-					//CURRENT SOLUTION: It seems that we always use the root auth macaroon in recursive calls, TM. And when calling outermost, TM.Verify(TM.. 
-					// UPDATE i think it should be *this*, since a discharge macaroon itself can have other 3rd party caveats, and then the discharge macaroon should authorize the next level discharge? Or not? 
-					// The argument is a bit weird in the first call, since it will always be equal to this. But in recursive calls, this will be a discharge, and auth will be the old this. 
-					// So we cant remove it from arg. 
-					if (!discharger.Verify(this, dischargeMacaroons, predicateVerifier, caveatRootKey))
+					// A discharge macaroon itself can have other 3rd party caveats, and then the discharge macaroon should authorize the next level discharge.
+					// The argument is a bit weird in the first call outermost call by the client, since it will always be equal to this. But in recursive calls, this will be a discharge, and auth will be the old this.
+					var innerMacaroonVerificationResult = discharger.Validate(this, dischargeMacaroons, predicateVerifier, caveatRootKey);
+					if (!innerMacaroonVerificationResult.IsValid)
 					{
-						return false;
+						return innerMacaroonVerificationResult; //TODO: is debugging really possible when the macaroons are nested? How do we know "where" the error happened? 
 					}
 				}		    
 	
@@ -217,11 +234,19 @@ namespace MacaroonCore
 				currentKey = authorisingMacaroon.BindForRequest(finalized);
 			}
 
-			if (!currentKey.TimeConstantCompare(Signature)) return false;
+			if (!currentKey.TimeConstantCompare(Signature)) return new MacaroonValidationResult 
+			{ 
+				IsValid = false, 
+				MacaroonValidationException = new MacaroonAuthenticityException() 
+			};
 
 			hmac.Dispose();
 
-			return true;
+			return new MacaroonValidationResult
+			{
+				IsValid = true,
+				MacaroonValidationException = null
+			};
 		}
 
 
