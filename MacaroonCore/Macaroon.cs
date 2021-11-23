@@ -176,7 +176,7 @@ namespace MacaroonCore
 			{
 				if (IsFirstPartyCaveat(caveat))
 				{
-					if (!predicateVerifier.Verify(caveat.Predicate)) return new MacaroonValidationResult
+					if (!predicateVerifier.Verify(caveat.CaveatId)) return new MacaroonValidationResult
 					{
 						IsValid = false,
 						MacaroonValidationException = new InvalidPredicateException() //Predicate verifier can log as needed if they wish to do so.

@@ -14,7 +14,6 @@ namespace MacaroonCore
 
 			//First class caveats has the predicate as their Id.
 			CaveatId = predicate;
-			Predicate = CaveatId;
 		}
 
 		public override byte[] Payload() =>

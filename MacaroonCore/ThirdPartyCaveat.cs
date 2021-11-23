@@ -33,10 +33,6 @@ namespace MacaroonCore
 			CaveatId = Encode.DefaultByteEncoder(_caveatId); 
 
 			Location = location;
-
-			Predicate = ""; //TODO: the predicate is encrypted, so we shoulndt expose it in the clear. 
-							// It was verified if we find a discharge macaroon with a proof-of-key signature from the third party.
-							// We are not meant to know it? 
 		}
 
 		public override byte[] Payload() => _verificationId.Concat(_caveatId).ToArray();
