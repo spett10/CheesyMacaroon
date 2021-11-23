@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace MacaroonCore
+﻿namespace MacaroonCore
 {
 	public abstract class Caveat
 	{
@@ -9,5 +7,7 @@ namespace MacaroonCore
 		public string VerificationId { get; set; }
 
 		public abstract byte[] Payload();
+
+		public abstract bool IsFirstPartyCaveat { get; }
 	}
 }

@@ -35,6 +35,8 @@ namespace MacaroonCore
 			Location = location;
 		}
 
+		public override bool IsFirstPartyCaveat { get { return true; } }
+
 		public override byte[] Payload() => _verificationId.Concat(_caveatId).ToArray();
 	}
 }

@@ -16,6 +16,8 @@ namespace MacaroonCore
 			CaveatId = predicate;
 		}
 
+		public override bool IsFirstPartyCaveat { get { return true; } }
+		
 		public override byte[] Payload() =>
 								Encode.DefaultStringDecoder(CaveatId)
 								.Concat(Encode.DefaultStringDecoder(VerificationId))

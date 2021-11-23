@@ -88,11 +88,6 @@ namespace MacaroonCore
 			return Encode.DefaultByteEncoder(randomBytes);
 		}
 
-		private bool IsFirstPartyCaveat(Caveat caveat)
-		{
-			return caveat.VerificationId.Equals(FirstPartyCaveat.FirstPartyCaveatIndicator); //TODO: this can probably be made better with polymorphism or something. 
-		}
-
 		public Macaroon AddFirstPartyCaveat(FirstPartyCaveat caveat)
 		{
 			AddCaveatHelper(caveat);
@@ -174,7 +169,7 @@ namespace MacaroonCore
 
 			foreach (var caveat in Caveats)
 			{
-				if (IsFirstPartyCaveat(caveat))
+				if (caveat.IsFirstPartyCaveat)
 				{
 					if (!predicateVerifier.Verify(caveat.CaveatId)) return new MacaroonValidationResult
 					{
