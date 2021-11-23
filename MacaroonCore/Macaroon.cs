@@ -16,10 +16,12 @@ namespace MacaroonCore
 
 		public bool Discharge { get; set; }
 
+		private const int IdSizeInBytes = 32;
 
-		public static Macaroon CreateAuthorisingMacaroon(byte[] key, string id, string location = null)
+
+		public static Macaroon CreateAuthorisingMacaroon(byte[] key, string location = null)
 		{
-			return new Macaroon(key, id, false, location);
+			return new Macaroon(key, GenerateId(), false, location);
 		}
 
 		public static Macaroon CreateDischargeMacaroon(byte[] thirdPartyKey, string caveatId, string location, IPredicateVerifier predicateVerifier)
@@ -32,7 +34,7 @@ namespace MacaroonCore
 			var payload = new DischargePayload(payloadRaw);
 
 			var predicate = Encode.DefaultStringEncoder(payload.Predicate);
-			if(!predicateVerifier.Verify(predicate))
+			if (!predicateVerifier.Verify(predicate))
 			{
 				throw new ArgumentException("Predicate could not be verified, cannot create discharge macaroon.");
 			}
@@ -55,18 +57,13 @@ namespace MacaroonCore
 
 		}
 
-		public byte[] IdPayload { 
-			get 
-			{ 
-				if (Discharge) 
-				{
-					// TODO: cant we always just decode from b64 instead of using GUIDS as identifiers? Then we dont need branching here. 
-					return Encode.DefaultByteDecoder(Id);
-				} 
-				else 
-					return Encode.DefaultStringDecoder(Id); 
+		public byte[] IdPayload
+		{
+			get
+			{
+				return Encode.DefaultByteDecoder(Id);
 			}
-		}  
+		}
 
 		private Macaroon AddCaveatHelper(Caveat caveat)
 		{
@@ -83,6 +80,14 @@ namespace MacaroonCore
 		private HMAC CreateHMAC(byte[] key)
 		{
 			return new HMACSHA256(key);
+		}
+
+		private static string GenerateId()
+		{
+			var rng = RandomNumberGenerator.Create();
+			var randomBytes = new byte[IdSizeInBytes];
+			rng.GetBytes(randomBytes);
+			return Encode.DefaultByteEncoder(randomBytes);
 		}
 
 		private bool IsFirstPartyCaveat(Caveat caveat)
@@ -127,7 +132,7 @@ namespace MacaroonCore
 
 			var sealedMacaroons = new List<Macaroon>();
 
-			foreach(var dischargeMacaroon in dischargeMacaroons)
+			foreach (var dischargeMacaroon in dischargeMacaroons)
 			{
 				var newSignature = this.BindForRequest(dischargeMacaroon);
 				dischargeMacaroon.Signature = newSignature;
@@ -169,7 +174,7 @@ namespace MacaroonCore
 			var rootSignature = hmac.ComputeHash(this.IdPayload);
 			currentKey = rootSignature;
 
-			foreach(var caveat in Caveats)
+			foreach (var caveat in Caveats)
 			{
 				if (IsFirstPartyCaveat(caveat))
 				{
@@ -218,8 +223,8 @@ namespace MacaroonCore
 					{
 						return innerMacaroonVerificationResult; //TODO: is debugging really possible when the macaroons are nested? How do we know "where" the error happened? 
 					}
-				}		    
-	
+				}
+
 				hmac.Key = currentKey;
 				currentKey = hmac.ComputeHash(caveat.Payload());
 			}
@@ -234,10 +239,10 @@ namespace MacaroonCore
 				currentKey = authorisingMacaroon.BindForRequest(finalized);
 			}
 
-			if (!currentKey.TimeConstantCompare(Signature)) return new MacaroonValidationResult 
-			{ 
-				IsValid = false, 
-				MacaroonValidationException = new MacaroonAuthenticityException() 
+			if (!currentKey.TimeConstantCompare(Signature)) return new MacaroonValidationResult
+			{
+				IsValid = false,
+				MacaroonValidationException = new MacaroonAuthenticityException()
 			};
 
 			hmac.Dispose();
