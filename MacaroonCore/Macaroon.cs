@@ -47,8 +47,6 @@ namespace MacaroonCore
 			Location = location;
 			Id = id;
 			Caveats = new List<Caveat>();
-
-			/* Set Discharge before we get IdPayLoad, there is a temporal dependence there. TODO fix this */
 			Discharge = isDischarge;
 
 			using var hmac = CreateHMAC(key);
