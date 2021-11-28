@@ -2,7 +2,6 @@ using MacaroonCore;
 using NUnit.Framework;
 using System;
 using System.Security.Cryptography;
-using System.Text;
 using Moq;
 using System.Collections.Generic;
 using System.Linq;

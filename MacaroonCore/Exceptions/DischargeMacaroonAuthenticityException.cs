@@ -4,17 +4,17 @@ namespace MacaroonCore.Exceptions
 {
 	public class DischargeMacaroonAuthenticityException : MacaroonValidationException
 	{
-		public DischargeMacaroonAuthenticityException()
+		public DischargeMacaroonAuthenticityException() : base()
 		{
 
 		}
 
-		public DischargeMacaroonAuthenticityException(string message) : base(message)
+		public DischargeMacaroonAuthenticityException(string message, string originId) : base(message, originId)
 		{
-
+			
 		}
 
-		public DischargeMacaroonAuthenticityException(string message, Exception exception) : base(message, exception)
+		public DischargeMacaroonAuthenticityException(string message, Exception exception, string originId) : base(message, exception, originId)
 		{
 
 		}

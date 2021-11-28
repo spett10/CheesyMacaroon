@@ -174,7 +174,7 @@ namespace MacaroonCore
 					if (!predicateVerifier.Verify(caveat.CaveatId)) return new MacaroonValidationResult
 					{
 						IsValid = false,
-						MacaroonValidationException = new InvalidPredicateException() //Predicate verifier can log as needed if they wish to do so.
+						MacaroonValidationException = new InvalidPredicateException("Predicate not verified", this.Id) //Predicate verifier can log as needed if they wish to do so.
 					};
 				}
 				else
@@ -186,7 +186,7 @@ namespace MacaroonCore
 						return new MacaroonValidationResult
 						{
 							IsValid = false,
-							MacaroonValidationException = new DischargeMacaroonNotFoundException($"Did not find discharge for {nameof(caveat.CaveatId)} {caveat.CaveatId}")
+							MacaroonValidationException = new DischargeMacaroonNotFoundException($"Did not find discharge for {nameof(caveat.CaveatId)} {caveat.CaveatId}", this.Id)
 						};
 					}
 
@@ -203,7 +203,7 @@ namespace MacaroonCore
 						return new MacaroonValidationResult
 						{
 							IsValid = false,
-							MacaroonValidationException = new DischargeMacaroonAuthenticityException()
+							MacaroonValidationException = new DischargeMacaroonAuthenticityException("Decryption error", this.Id) //TODO: does this leak too much? 
 						};
 					}
 
@@ -214,7 +214,7 @@ namespace MacaroonCore
 					var innerMacaroonVerificationResult = discharger.Validate(this, dischargeMacaroons, predicateVerifier, caveatRootKey);
 					if (!innerMacaroonVerificationResult.IsValid)
 					{
-						return innerMacaroonVerificationResult; //TODO: is debugging really possible when the macaroons are nested? How do we know "where" the error happened? 
+						return innerMacaroonVerificationResult;
 					}
 				}
 
@@ -235,7 +235,7 @@ namespace MacaroonCore
 			if (!currentKey.TimeConstantCompare(Signature)) return new MacaroonValidationResult
 			{
 				IsValid = false,
-				MacaroonValidationException = new MacaroonAuthenticityException()
+				MacaroonValidationException = new MacaroonAuthenticityException("Macaroon not authentic", this.Id) //TODO: all these errors allow caller to distinguish, do we leak too much info? Can they chew through the MAC this way? 
 			};
 
 			hmac.Dispose();

@@ -4,17 +4,17 @@ namespace MacaroonCore.Exceptions
 {
 	public class InvalidPredicateException : MacaroonValidationException
 	{
-		public InvalidPredicateException()
+		public InvalidPredicateException() : base()
 		{
 
 		}
 
-		public InvalidPredicateException(string message) : base(message)
+		public InvalidPredicateException(string message, string originId) : base(message, originId)
 		{
 
 		}
 
-		public InvalidPredicateException(string message, Exception inner) : base(message, inner)
+		public InvalidPredicateException(string message, Exception inner, string originId) : base(message, inner, originId)
 		{
 
 		}
