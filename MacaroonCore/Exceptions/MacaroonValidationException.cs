@@ -10,6 +10,11 @@ namespace MacaroonCore.Exceptions
 			OriginId = "";
 		}
 
+		public MacaroonValidationException(string message): base(message)
+		{
+			OriginId = "";
+		}
+
 		public MacaroonValidationException(string message, Exception inner) : base(message, inner)
 		{
 			OriginId = "";

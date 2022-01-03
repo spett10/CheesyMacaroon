@@ -268,6 +268,11 @@ namespace MacaroonCore
 			try
 			{
 				var deserializedDto = JsonSerializer.Deserialize<MacaroonDto>(json);
+
+				if (string.IsNullOrEmpty(deserializedDto.Id)) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Id)} was null or empty");
+
+				if(deserializedDto.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Signature)} was null or empty");
+
 				var deserialized = new Macaroon()
 				{
 					Discharge = isDischarge, //TODO: how do we know? Does anyone know? Should it be explicit in serialization? The Id of a discharge is in the caveat list for the corresponding third party caveat. 
@@ -281,6 +286,10 @@ namespace MacaroonCore
 
 				foreach(var caveatDto in deserializedDto.Caveats)
 				{
+					if (string.IsNullOrEmpty(caveatDto.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.VerificationId)} was null or empty");
+
+					if (string.IsNullOrEmpty(caveatDto.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.CaveatId)} was null or empty");
+
 					if(caveatDto.VerificationId.Equals(FirstPartyCaveat.FirstPartyCaveatIndicator, StringComparison.CurrentCultureIgnoreCase)) //TODO: Uggo
 					{
 						caveats.Add(new FirstPartyCaveat()

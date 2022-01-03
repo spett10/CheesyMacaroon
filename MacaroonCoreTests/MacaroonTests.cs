@@ -462,7 +462,7 @@ namespace MacaroonCoreTests
 		#region Serialization
 
 		[Test]
-		public void Macaroon_Serialize_Then_Deserialize_ShouldVerify()
+		public void Serialize_Then_Deserialize_ShouldVerify()
 		{
 			var rootKey = KeyGen();
 
@@ -507,53 +507,144 @@ namespace MacaroonCoreTests
 		}
 
 		[Test]
-		public void Macaroon_Serialize_AlterLocationOfFirstPartyCaveat_ShouldNotVerify()
+		public void Deserialize_MissingId_ShouldThrow()
 		{
-			var rootKey = KeyGen();
+			var serializedMissingId = @"{
+    ""Location"": null,
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""CaveatId"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+        ""VerificationId"": ""RWmTBRv4INxcHuJOfE\u002BtryjggvZebA0F87pmE4H3uqMT0xVHGDZU8FbVyhelbLoRgdCiayOnlwo9dGXO""
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingId, isDischarge: false));
+		}
 
-			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+		[Test]
+		public void Deserialize_MissingSignature_ShouldThrow()
+		{
+			var serializedMissingSignature = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""ip = 192.0.10.168"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingSignature, isDischarge: false));
+		}
 
-			var adminCaveat = new FirstPartyCaveat("user == admin");
-			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+		[Test]
+		public void Deserialize_FirstPartyCaveatMissingCaveatId_ShouldThrow()
+		{
+			var serializedMissingFirstPartyCaveatId = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+    ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingFirstPartyCaveatId, isDischarge: false));
+		}
 
-			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
-			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+		[Test]
+		public void Deserialize_FirstPartyCaveatMissingVerificationId_ShouldThrow()
+		{
+			var serializedMissingFirstPatyCaveatVerificationID = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""ip = 192.0.10.168"",
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+    ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingFirstPatyCaveatVerificationID, isDischarge: false));
+		}
 
-			var verifierMock = new Mock<IPredicateVerifier>();
-			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+		[Test]
+		public void Deserialize_ThirdPartyCaveatMissingCaveatId_ShouldThrow()
+		{
+			var serializedMissingThirdPartyCaveatId = @"{
+    ""Location"": null,
+    ""Id"": ""0jRladhaS4\u002B0gU59pYgXfQn4nLFnmUpdzBoUNxKfdOo="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""VerificationId"": ""RWmTBRv4INxcHuJOfE\u002BtryjggvZebA0F87pmE4H3uqMT0xVHGDZU8FbVyhelbLoRgdCiayOnlwo9dGXO""
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingThirdPartyCaveatId, isDischarge: false));
+		}
 
-			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
-			var thirdPartyLocation = "https://example.com";
-			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
-			var thirdPartyPredicate = "userID = 1234567890";
-
-			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
-
-			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
-
-			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
-			var expCaveat = new FirstPartyCaveat("exp = 12345");
-
-			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
-			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
-			dischargeMacaroon.Finalize();
-
-			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
-
-			//TODO: can we alter some of the stuff and have it pass signature? Location is not covered in first party caveats I think?
-			var authorizingSerialized = authorisingMacaroon.Serialize();
-
-			// First party caveats do not have location covered by signature currently. Third party have it as AAD.
-			// TODO: why is it not covered in the spec? I guess we dont need it for first party. Should we then not have it ever? 
-			authorizingSerialized = authorizingSerialized.Replace("\"Location\": null", "\"Location\": \"something\"");
-
-			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
-
-			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
-			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
-
-			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
-			Assert.That(validationResult.IsValid, Is.False);
+		[Test]
+		public void Deserialize_ThirdPartyCaveatMissingVerificationId_ShouldThrow()
+		{
+			var serializedMissingThirdPartyCaveatVerificationId = @"{
+    ""Location"": null,
+    ""Id"": ""0jRladhaS4\u002B0gU59pYgXfQn4nLFnmUpdzBoUNxKfdOo="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""CaveatId"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingThirdPartyCaveatVerificationId, isDischarge: false));
 		}
 
 		#endregion Serialization
