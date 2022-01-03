@@ -4,8 +4,10 @@ namespace MacaroonCore
 {
 	public class ThirdPartyCaveat : Caveat
 	{
-		private readonly byte[] _verificationId;
-		private readonly byte[] _caveatId;
+		internal ThirdPartyCaveat()
+		{
+
+		}
 
 		public ThirdPartyCaveat(string predicate, byte[] caveatRootKey, byte[] embeddingMacaroonSignature, byte[] thirdPartyKey, string location)
 		{
@@ -16,27 +18,27 @@ namespace MacaroonCore
 			// This enables issuer of macaroon to later decrypt this to obtain caveatRootKey - noone else can obtain it from the macaroon.
 			// This caveatRootKey is needed to verify the HMAC on the discharge macaroon for the third party caveat. 
 			// Storing it here means the Caveat is self-contained in this regard.
-			_verificationId = SymmetricCryptography.AesGcmEncrypt(embeddingMacaroonSignature, 
+			var verificationIdBytes = SymmetricCryptography.AesGcmEncrypt(embeddingMacaroonSignature, 
 																  caveatRootKey, 
 																  locationBytes);
 
-			VerificationId = Encode.DefaultByteEncoder(_verificationId);
+			VerificationId = Encode.DefaultByteEncoder(verificationIdBytes);
 
 			// Caveat Root key is appended with predicate. We encrypt with the key we have shared with the third party.
 			// They can then decrypt and assert the predicate. Then, they will construct the Discharge macaroon signature using the caveat root key.
 			// Given the above encryption stored in VerificationId, the issuer can then obtain the rootkey again and use it to verify the discharge macaroon. 
 			// The discharge macaroon will have this same identifier as its root element, and that is how we can find the discharge macaroon given a third party caveat.
-			_caveatId = SymmetricCryptography.AesGcmEncrypt(thirdPartyKey,
+			var caveatIdBytes = SymmetricCryptography.AesGcmEncrypt(thirdPartyKey,
 															caveatRootKey.Concat(Encode.DefaultStringDecoder(predicate)).ToArray(),
 															locationBytes);  
 
-			CaveatId = Encode.DefaultByteEncoder(_caveatId); 
+			CaveatId = Encode.DefaultByteEncoder(caveatIdBytes); 
 
 			Location = location;
 		}
 
 		public override bool IsFirstPartyCaveat { get { return false; } }
 
-		public override byte[] Payload() => _verificationId.Concat(_caveatId).ToArray();
+		public override byte[] Payload() => Encode.DefaultByteDecoder(VerificationId).Concat(Encode.DefaultByteDecoder(CaveatId)).ToArray();
 	}
 }

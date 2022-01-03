@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System;
 using MacaroonCore.Model;
 using MacaroonCore.Exceptions;
+using System.Text.Json;
+using MacaroonCore.Dto;
 
 namespace MacaroonCore
 {
@@ -16,8 +18,20 @@ namespace MacaroonCore
 
 		public bool Discharge { get; set; }
 
+		public byte[] IdPayload
+		{
+			get
+			{
+				return Encode.DefaultByteDecoder(Id);
+			}
+		}
+
 		private const int IdSizeInBytes = 32;
 
+		internal Macaroon()
+		{
+
+		}
 
 		public static Macaroon CreateAuthorisingMacaroon(byte[] key, string location = null)
 		{
@@ -51,16 +65,6 @@ namespace MacaroonCore
 
 			using var hmac = CreateHMAC(key);
 			Signature = hmac.ComputeHash(IdPayload);
-
-
-		}
-
-		public byte[] IdPayload
-		{
-			get
-			{
-				return Encode.DefaultByteDecoder(Id);
-			}
 		}
 
 		private Macaroon AddCaveatHelper(Caveat caveat)
@@ -247,6 +251,64 @@ namespace MacaroonCore
 			};
 		}
 
+		public string Serialize()
+		{
+			//TODO: ignore null (default for location in first party caveats?) 
+			return JsonSerializer.Serialize(new MacaroonDto() 
+			{
+				Id = this.Id,
+				Caveats = this.Caveats.Select(x => x.ToDto()).ToList(),
+				Location = this.Location,
+				Signature = this.Signature
+			});
+		}
 
+		public static Macaroon Deserialize(string json, bool isDischarge = true)
+		{
+			try
+			{
+				var deserializedDto = JsonSerializer.Deserialize<MacaroonDto>(json);
+				var deserialized = new Macaroon()
+				{
+					Discharge = isDischarge, //TODO: how do we know? Does anyone know? Should it be explicit in serialization? The Id of a discharge is in the caveat list for the corresponding third party caveat. 
+
+					Location = deserializedDto.Location,
+					Id = deserializedDto.Id,
+					Signature = deserializedDto.Signature,
+				};
+
+				var caveats = new List<Caveat>();
+
+				foreach(var caveatDto in deserializedDto.Caveats)
+				{
+					if(caveatDto.VerificationId.Equals(FirstPartyCaveat.FirstPartyCaveatIndicator, StringComparison.CurrentCultureIgnoreCase)) //TODO: Uggo
+					{
+						caveats.Add(new FirstPartyCaveat()
+						{
+							CaveatId = caveatDto.CaveatId,
+							Location = caveatDto.Location,
+							VerificationId = caveatDto.VerificationId
+						});
+					}
+					else
+					{
+						caveats.Add(new ThirdPartyCaveat() 
+						{ 
+							CaveatId = caveatDto.CaveatId,
+							Location = caveatDto.Location,
+							VerificationId = caveatDto.VerificationId
+						});
+					}
+				}
+
+				deserialized.Caveats = caveats;
+
+				return deserialized;
+			}
+			catch (Exception e)
+			{
+				throw new MacaroonDeserializationException($"Failed to deserialize macaroon", e);
+			}
+		}
 	}
 }

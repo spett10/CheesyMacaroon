@@ -1,0 +1,3 @@
+﻿-Some sort of MacaroonFactory or orchestrator, the work currently needed to fiddle with macaroons and discharge is bothersome (see tests).
+Perhaps a propper way to do it will reveal itself when we start using it in our test api. 
+

@@ -459,6 +459,105 @@ namespace MacaroonCoreTests
 
 		#endregion
 
+		#region Serialization
+
+		[Test]
+		public void Macaroon_Serialize_Then_Deserialize_ShouldVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			//TODO: can we alter some of the stuff and have it pass signature? Location is not covered in first party caveats I think?
+			var authorizingSerialized = authorisingMacaroon.Serialize();
+			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+
+			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.True);
+		}
+
+		[Test]
+		public void Macaroon_Serialize_AlterLocationOfFirstPartyCaveat_ShouldNotVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			//TODO: can we alter some of the stuff and have it pass signature? Location is not covered in first party caveats I think?
+			var authorizingSerialized = authorisingMacaroon.Serialize();
+
+			// First party caveats do not have location covered by signature currently. Third party have it as AAD.
+			// TODO: why is it not covered in the spec? I guess we dont need it for first party. Should we then not have it ever? 
+			authorizingSerialized = authorizingSerialized.Replace("\"Location\": null", "\"Location\": \"something\"");
+
+			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+
+			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.False);
+		}
+
+		#endregion Serialization
+
 
 		#region Helpers
 

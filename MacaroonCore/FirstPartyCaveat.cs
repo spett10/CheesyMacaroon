@@ -6,6 +6,11 @@ namespace MacaroonCore
 	{
 		public static string FirstPartyCaveatIndicator = "0";
 
+		internal FirstPartyCaveat()
+		{
+
+		}
+
 		public FirstPartyCaveat(string predicate, string location = null)
 		{
 			VerificationId = FirstPartyCaveatIndicator;
