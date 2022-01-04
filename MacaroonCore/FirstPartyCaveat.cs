@@ -6,6 +6,11 @@ namespace MacaroonCore
 	{
 		public static string FirstPartyCaveatIndicator = "0";
 
+		public static bool VerificationIdIndicatesFirstPartyCaveat(string verificationId)
+		{
+			return FirstPartyCaveatIndicator.Equals(verificationId, System.StringComparison.Ordinal);
+		}
+
 		internal FirstPartyCaveat()
 		{
 

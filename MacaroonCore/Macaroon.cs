@@ -207,7 +207,7 @@ namespace MacaroonCore
 						return new MacaroonValidationResult
 						{
 							IsValid = false,
-							MacaroonValidationException = new DischargeMacaroonAuthenticityException("Decryption error", this.Id) //TODO: does this leak too much? 
+							MacaroonValidationException = new MacaroonAuthenticityException("Macaroon not authentic", this.Id) //TODO: does this leak too much? 
 						};
 					}
 
@@ -253,17 +253,21 @@ namespace MacaroonCore
 
 		public string Serialize()
 		{
-			//TODO: ignore null (default for location in first party caveats?) 
-			return JsonSerializer.Serialize(new MacaroonDto() 
+			var dto = new MacaroonDto()
 			{
 				Id = this.Id,
 				Caveats = this.Caveats.Select(x => x.ToDto()).ToList(),
-				Location = this.Location,
-				Signature = this.Signature
+				Signature = this.Signature,
+				Location = this.Location
+			};
+
+			return JsonSerializer.Serialize(dto, new JsonSerializerOptions()
+			{
+				DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
 			});
 		}
 
-		public static Macaroon Deserialize(string json, bool isDischarge = true)
+		public static Macaroon Deserialize(string json, bool isDischarge)
 		{
 			try
 			{
@@ -275,8 +279,7 @@ namespace MacaroonCore
 
 				var deserialized = new Macaroon()
 				{
-					Discharge = isDischarge, //TODO: how do we know? Does anyone know? Should it be explicit in serialization? The Id of a discharge is in the caveat list for the corresponding third party caveat. 
-
+					Discharge = isDischarge, //TODO: its annoying that caller has to know - what if they specify it wrong? Validation will then fail since we treat the signature incorrectly. But can it create harm somehow? 
 					Location = deserializedDto.Location,
 					Id = deserializedDto.Id,
 					Signature = deserializedDto.Signature,
@@ -290,7 +293,7 @@ namespace MacaroonCore
 
 					if (string.IsNullOrEmpty(caveatDto.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.CaveatId)} was null or empty");
 
-					if(caveatDto.VerificationId.Equals(FirstPartyCaveat.FirstPartyCaveatIndicator, StringComparison.CurrentCultureIgnoreCase)) //TODO: Uggo
+					if(FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveatDto.VerificationId))
 					{
 						caveats.Add(new FirstPartyCaveat()
 						{
