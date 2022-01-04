@@ -8,7 +8,6 @@ EXPOSE 443
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
 COPY ["Macaroon/MacaroonTestApi.csproj", "Macaroon/"]
-COPY ["MacaroonCore/MacaroonCore.csproj", "MacaroonCore/"]
 RUN dotnet restore "Macaroon/MacaroonTestApi.csproj"
 COPY . .
 WORKDIR "/src/Macaroon"

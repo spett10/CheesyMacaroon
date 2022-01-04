@@ -1,6 +1,6 @@
 using System;
 
-namespace Macaroon
+namespace MacaroonTestApi
 {
 	public class WeatherForecast
 	{

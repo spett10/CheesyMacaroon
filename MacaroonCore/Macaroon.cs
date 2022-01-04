@@ -211,7 +211,6 @@ namespace MacaroonCore
 						};
 					}
 
-
 					// Recursively verify the discharge macaroon. It itself could have third party caveats, and on and on we go. 
 					// A discharge macaroon itself can have other 3rd party caveats, and then the discharge macaroon should authorize the next level discharge.
 					// The argument is a bit weird in the first call outermost call by the client, since it will always be equal to this. But in recursive calls, this will be a discharge, and auth will be the old this.

@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31112.23
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Macaroon", "Macaroon\Macaroon.csproj", "{8BB31270-F9EE-4E09-92C0-6ED195381831}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MacaroonTestApi", "Macaroon\MacaroonTestApi.csproj", "{8BB31270-F9EE-4E09-92C0-6ED195381831}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MacaroonCore", "MacaroonCore\MacaroonCore.csproj", "{77984F14-91D0-4C4F-8B84-3A7C48208CCD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MacaroonCore", "MacaroonCore\MacaroonCore.csproj", "{77984F14-91D0-4C4F-8B84-3A7C48208CCD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MacaroonCoreTests", "MacaroonCoreTests\MacaroonCoreTests.csproj", "{B71A9250-CFA4-47F9-B2DF-C7B2323CDFEF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MacaroonCoreTests", "MacaroonCoreTests\MacaroonCoreTests.csproj", "{B71A9250-CFA4-47F9-B2DF-C7B2323CDFEF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
