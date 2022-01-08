@@ -9,26 +9,76 @@ namespace MacaroonTestApi.Repositories
 	{
 		private readonly byte[] _rootKey;
 
+		private readonly Dictionary<string, byte[]> _sharedKeys;
+
 		public InMemoryMacaroonRepository()
 		{
 			// Just to test it out, we spawn it as singleton, each restart of service would issue a new key and invalidate all macaroons currently issued. So dont do it like this. Unless that is a feature. 
-			var csprng = RandomNumberGenerator.Create();
-			_rootKey = new byte[32];
-			csprng.GetBytes(_rootKey);
+			_rootKey = KeyGen();
+			
+			// You wouldnt hardcode keys like this but we are just testing out
+			_sharedKeys = new Dictionary<string, byte[]>();
+			_sharedKeys.Add("https://example.com", Encode.DefaultStringDecoder("YELLOW SUBMARINEYELLOW SUBMARINE"));
 		}
 
-		public string IssueMacaroon(List<string> caveats)
+		private byte[] KeyGen()
 		{
-			if (caveats.Count < 1) throw new ArgumentException($"{nameof(caveats)} was empty.");
+			var csprng = RandomNumberGenerator.Create();
+			var key = new byte[32];
+			csprng.GetBytes(key);
+			return key;
+		}
+
+		public string IssueMacaroon(List<string> firstPartyCaveats)
+		{
+			if (firstPartyCaveats.Count < 1) throw new ArgumentException($"{nameof(firstPartyCaveats)} was empty.");
 
 			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(_rootKey);
 
-			foreach(var claim in caveats)
+			foreach (var claim in firstPartyCaveats)
 			{
 				authorisingMacaroon.AddFirstPartyCaveat(new FirstPartyCaveat(claim));
 			}
 
 			return authorisingMacaroon.Serialize();
+		}
+
+		// Assumes we have a shared key which is found based on location.
+		public string ExtendMacaroon(string serializedMacaroon, List<string> firstPartyCaveats, string thirdPartyPredicate, string location)
+		{
+			if (string.IsNullOrEmpty(thirdPartyPredicate)) throw new ArgumentException($"{nameof(thirdPartyPredicate)} was null or empty.");
+
+			if (!_sharedKeys.ContainsKey(location)) throw new ArgumentException($"No shared key found for {nameof(location)}");
+
+			var macaroon = Macaroon.Deserialize(serializedMacaroon, isDischarge: false);
+
+			foreach (var claim in firstPartyCaveats)
+			{
+				macaroon.AddFirstPartyCaveat(new FirstPartyCaveat(claim));
+			}
+
+			var sharedKey = _sharedKeys[location];
+			var dischargeRootKey = KeyGen();
+			macaroon.AddThirdPartyCaveat(thirdPartyPredicate, dischargeRootKey, location, sharedKey, out var _);
+
+			return macaroon.Serialize();
+		}
+
+		public string IssueDischarge(string caveatid, string location, List<string> firstPartyCaveats, IPredicateVerifier predicateVerifier)
+		{
+			if (!_sharedKeys.ContainsKey(location)) throw new ArgumentException($"No shared key found for {nameof(location)}");
+
+			if (string.IsNullOrEmpty(caveatid)) throw new ArgumentException($"{nameof(caveatid)} was null or empty.");
+
+			var sharedKey = _sharedKeys[location];
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(sharedKey, caveatid, location, predicateVerifier);
+
+			foreach(var caveat in firstPartyCaveats)
+			{
+				dischargeMacaroon.AddFirstPartyCaveat(new FirstPartyCaveat(caveat));
+			}
+
+			return dischargeMacaroon.Serialize();
 		}
 
 		public bool ValidateMacaroon(string serializedMacaroon, List<string> serializedDischargeMacaroons, IPredicateVerifier predicateVerifier)

@@ -5,3 +5,7 @@ Perhaps a propper way to do it will reveal itself when we start using it in our 
 
 
 -The predicate verifier interface might need more context, i.e. access to all predicates at once, not just the current one. Otherwise it has to be pretty stateful. 
+
+
+-the encryption/decryption should be injected/behind an interface. A consumer should be able to have
+the symmetric key in hsm or hardware or whatever they want. 

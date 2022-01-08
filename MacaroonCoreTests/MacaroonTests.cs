@@ -572,12 +572,12 @@ namespace MacaroonCoreTests
 
 			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
 
-			var authorizingSerialized = authorisingMacaroon.Serialize();
+			var authorizingJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(authorisingMacaroon.Serialize()));
 			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
 
-			authorizingSerialized = authorizingSerialized.Replace("user == admin", "user == anon"); // Alter a caveat
+			authorizingJson = authorizingJson.Replace("user == admin", "user == anon"); // Alter a caveat
 
-			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedAuthorizing = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(authorizingJson)), isDischarge: false);
 			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
 
 			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
@@ -620,12 +620,12 @@ namespace MacaroonCoreTests
 			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
 
 			var authorizingSerialized = authorisingMacaroon.Serialize();
-			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+			var dischargeJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(sealedDischargeMacaroon.Serialize()));
 
-			dischargeSerialized = dischargeSerialized.Replace("https://example.com", "https://myevildomain.com"); // Alter location. It is part of aad for third party caveats. But only in the discharge itself.
+			dischargeJson = dischargeJson.Replace("https://example.com", "https://myevildomain.com"); // Alter location. It is part of aad for third party caveats. But only in the discharge itself.
 
 			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
-			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+			var deserializedDischarge = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(dischargeJson)), isDischarge: true);
 
 			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
 			Assert.That(validationResult.IsValid, Is.False);
@@ -667,12 +667,12 @@ namespace MacaroonCoreTests
 			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
 
 			var authorizingSerialized = authorisingMacaroon.Serialize();
-			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+			var dischargeJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(sealedDischargeMacaroon.Serialize()));
 
-			dischargeSerialized = dischargeSerialized.Replace("exp = 12345", "exp = 99999");
+			dischargeJson = dischargeJson.Replace("exp = 12345", "exp = 99999");
 
 			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
-			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+			var deserializedDischarge = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(dischargeJson)), isDischarge: true);
 
 			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
 			Assert.That(validationResult.IsValid, Is.False);
@@ -702,7 +702,8 @@ namespace MacaroonCoreTests
     ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingId, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingId)), isDischarge: false));
 		}
 
 		[Test]
@@ -723,7 +724,8 @@ namespace MacaroonCoreTests
     }],
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingSignature, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingSignature)), isDischarge: false));
 		}
 
 		[Test]
@@ -744,7 +746,8 @@ namespace MacaroonCoreTests
     ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingFirstPartyCaveatId, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingFirstPartyCaveatId)), isDischarge: false));
 		}
 
 		[Test]
@@ -765,7 +768,8 @@ namespace MacaroonCoreTests
     ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingFirstPatyCaveatVerificationID, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingFirstPatyCaveatVerificationID)), isDischarge: false));
 		}
 
 		[Test]
@@ -791,7 +795,8 @@ namespace MacaroonCoreTests
     ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingThirdPartyCaveatId, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingThirdPartyCaveatId)), isDischarge: false));
 		}
 
 		[Test]
@@ -817,7 +822,8 @@ namespace MacaroonCoreTests
     ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
 }"
 ;
-			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(serializedMissingThirdPartyCaveatVerificationId, isDischarge: false));
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingThirdPartyCaveatVerificationId)), isDischarge: false));
 		}
 
 		#endregion Serialization

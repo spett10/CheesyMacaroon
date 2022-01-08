@@ -18,5 +18,23 @@ namespace MacaroonCore
 		public static ByteEncoder DefaultByteEncoder => Convert.ToBase64String;
 
 		public static ByteDecoder DefaultByteDecoder = Convert.FromBase64String;
+
+		static readonly char[] padding = { '=' };
+
+		public static string Base64UrlEncode(byte[] inArray)
+		{
+			return Convert.ToBase64String(inArray).TrimEnd(padding).Replace('+', '-').Replace('/', '_');
+		}
+
+		public static byte[] Base64UrlDecode(string encoded)
+		{
+			var replaced = encoded.Replace('_', '/').Replace('-', '+');
+			switch(replaced.Length % 4)
+			{
+				case 2: replaced += "=="; break;
+				case 3: replaced += "="; break;
+			}
+			return Convert.FromBase64String(replaced);
+		}
 	}
 }

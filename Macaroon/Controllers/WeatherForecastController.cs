@@ -1,4 +1,5 @@
 ﻿using MacaroonCore;
+using MacaroonTestApi.Middleware;
 using MacaroonTestApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -28,16 +29,39 @@ namespace MacaroonTestApi.Controllers
 		}
 
 		[HttpGet]
-		public IActionResult Get()
+		public IActionResult Attenuate(string user)
 		{
-			// TODO: Move to middleware or attribute? 
-			if(!HttpContext.Items.ContainsKey("Bearer"))
+			if (!HttpContext.Items.ContainsKey(MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName))
 			{
 				return Unauthorized();
 			}
 
-			var bearer = Base64UrlEncoder.Decode(HttpContext.Items["Bearer"].ToString());
-			if(!_macaroonRepository.ValidateMacaroon(bearer, new List<string>(), new SimplePredicateVerifier()))
+			var authorizingMacaroon = Base64UrlEncoder.Decode(HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString());
+
+			// Prepare the 3rd party caveat for this particular user. The user then has to obtain the discharge macaroon at https://example.com to prove that they fulfill the predicate. 
+			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", "https://example.com");
+
+			return Ok(extended);
+		}
+
+		[HttpGet]
+		public IActionResult Get()
+		{
+			// TODO: Move all the below into an attribute we can decorate with. 
+			if(!HttpContext.Items.ContainsKey(MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName))
+			{
+				return Unauthorized();
+			}
+
+			var authorizingMacaroon = HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString();
+			var discharges = new List<string>();
+
+			if (HttpContext.Items.ContainsKey(MacaroonAuthorizationHeaderMiddleware.DischargeMacaroonsItemName))
+			{
+				discharges = HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.DischargeMacaroonsItemName] as List<string>;
+			}
+
+			if(!_macaroonRepository.ValidateMacaroon(authorizingMacaroon, discharges, new SimplePredicateVerifier()))
 			{
 				return Unauthorized();
 			}

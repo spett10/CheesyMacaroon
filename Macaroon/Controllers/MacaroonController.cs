@@ -30,7 +30,9 @@ namespace MacaroonTestApi.Controllers
 
 			var serializedMacaroon = _macaroonRepository.IssueMacaroon(caveats);
 
-			return Ok(Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(serializedMacaroon)));
+			return Ok(serializedMacaroon);
 		}
+
+		//TODO: issue discharge based on basic authentication, then get username and put in as claim. 
 	}
 }

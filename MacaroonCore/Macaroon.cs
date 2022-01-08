@@ -6,6 +6,7 @@ using MacaroonCore.Model;
 using MacaroonCore.Exceptions;
 using System.Text.Json;
 using MacaroonCore.Dto;
+using System.Text;
 
 namespace MacaroonCore
 {
@@ -116,17 +117,21 @@ namespace MacaroonCore
 			return this;
 		}
 
+		/// <summary>
+		/// The end-user should bind their discharge macaroons to their authorizing macaroon using this function, before sending all macaroons for an access request at a target service. 
+		/// 
+		/// Otherwise, if you mistakenly send your discharge macaroon to someone, that has a macaroon based on the same root key,
+		/// they can freely re-use your discharge macaroons, across any and all macaroos that embed the corresponding third-party caveat identifier
+		/// that uses the same root key.
+		///
+		/// This would mean they could for example impersonate you, if your 3rd party caveat is the result of you authenticating at a 3rd party IDP.
+		/// 
+		/// This function prevents that by binding discharge macaroons to the specific authorizing macaroon. 
+		/// </summary>
+		/// <param name="dischargeMacaroons"></param>
+		/// <returns></returns>
 		public List<Macaroon> PrepareForRequest(List<Macaroon> dischargeMacaroons)
 		{
-			/* We must bind each discharge macaroon to the authorizing macaroon. 
-			 * Otherwise, if you mistakenly send your discharge macaroon to someone, that has a macaroon based on the same root key,
-			 * they can freely re-use your discharge macaroons, across any and all macaroos that embed the corresponding third-party caveat identifier
-			 * that uses the same root key. 
-			 * 
-			 * This would mean they could for example impersonate you, if your 3rd party caveat is the result of you authenticating at a 3rd party IDP.
-			 *  
-			 * */
-
 			var sealedMacaroons = new List<Macaroon>();
 
 			foreach (var dischargeMacaroon in dischargeMacaroons)
@@ -260,21 +265,25 @@ namespace MacaroonCore
 				Location = this.Location
 			};
 
-			return JsonSerializer.Serialize(dto, new JsonSerializerOptions()
+			var serialized = JsonSerializer.Serialize(dto, new JsonSerializerOptions()
 			{
 				DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
 			});
+
+			return Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serialized));
 		}
 
-		public static Macaroon Deserialize(string json, bool isDischarge)
+		public static Macaroon Deserialize(string b64urlencoded, bool isDischarge)
 		{
 			try
 			{
+				var json = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(b64urlencoded));
+
 				var deserializedDto = JsonSerializer.Deserialize<MacaroonDto>(json);
 
 				if (string.IsNullOrEmpty(deserializedDto.Id)) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Id)} was null or empty");
 
-				if(deserializedDto.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Signature)} was null or empty");
+				if (deserializedDto.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Signature)} was null or empty");
 
 				var deserialized = new Macaroon()
 				{
@@ -286,13 +295,13 @@ namespace MacaroonCore
 
 				var caveats = new List<Caveat>();
 
-				foreach(var caveatDto in deserializedDto.Caveats)
+				foreach (var caveatDto in deserializedDto.Caveats)
 				{
 					if (string.IsNullOrEmpty(caveatDto.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.VerificationId)} was null or empty");
 
 					if (string.IsNullOrEmpty(caveatDto.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.CaveatId)} was null or empty");
 
-					if(FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveatDto.VerificationId))
+					if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveatDto.VerificationId))
 					{
 						caveats.Add(new FirstPartyCaveat()
 						{
@@ -303,8 +312,8 @@ namespace MacaroonCore
 					}
 					else
 					{
-						caveats.Add(new ThirdPartyCaveat() 
-						{ 
+						caveats.Add(new ThirdPartyCaveat()
+						{
 							CaveatId = caveatDto.CaveatId,
 							Location = caveatDto.Location,
 							VerificationId = caveatDto.VerificationId
