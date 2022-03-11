@@ -2,12 +2,13 @@
 using MacaroonTestApi.Middleware;
 using MacaroonTestApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using ServiceStack;
 using System;
 using System.Collections.Generic;
 
 namespace MacaroonTestApi.Controllers
 {
-	[Route("[controller]")]
+	[Microsoft.AspNetCore.Mvc.Route("[controller]")]
 	[ApiController]
 	public class MacaroonController : ControllerBase
 	{
@@ -46,5 +47,11 @@ namespace MacaroonTestApi.Controllers
 		}
 
 		//TODO: issue discharge based on basic authentication, then get username and put in as claim. 
+		[HttpGet("authenticate")]
+		[InsecureBasicAuthenticationFilter("Soren", "password1234")]
+		public IActionResult Authenticate()
+		{
+			return Ok("Test");
+		}
 	}
 }
