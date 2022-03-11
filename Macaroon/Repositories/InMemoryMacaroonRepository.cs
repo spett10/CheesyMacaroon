@@ -7,21 +7,26 @@ namespace MacaroonTestApi.Repositories
 {
 	public class InMemoryMacaroonRepository : IMacaroonRepository
 	{
-		private readonly byte[] _rootKey;
+		//TODO: make some singleton wrapper around the key? So we always have the same for testing. 
+
+		private static readonly byte[] _rootKey;
 
 		private readonly Dictionary<string, byte[]> _sharedKeys;
 
-		public InMemoryMacaroonRepository()
+		static InMemoryMacaroonRepository()
 		{
 			// Just to test it out, we spawn it as singleton, each restart of service would issue a new key and invalidate all macaroons currently issued. So dont do it like this. Unless that is a feature. 
 			_rootKey = KeyGen();
-			
+		}
+
+		public InMemoryMacaroonRepository()
+		{			
 			// You wouldnt hardcode keys like this but we are just testing out
 			_sharedKeys = new Dictionary<string, byte[]>();
 			_sharedKeys.Add("https://example.com", Encode.DefaultStringDecoder("YELLOW SUBMARINEYELLOW SUBMARINE"));
 		}
 
-		private byte[] KeyGen()
+		private static byte[] KeyGen()
 		{
 			var csprng = RandomNumberGenerator.Create();
 			var key = new byte[32];

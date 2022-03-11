@@ -30,7 +30,7 @@ namespace MacaroonTestApi.Middleware
 					{
 						var tokens = headerValue.Split(" ").Skip(1).ToList();
 
-						if(tokens.Count > 1)
+						if(tokens.Count >= 1)
 						{
 							// Auth is the first by convention
 							var authorizingMacaroon = tokens[0];
