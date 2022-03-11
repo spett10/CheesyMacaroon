@@ -295,6 +295,8 @@ namespace MacaroonCore
 
 				var caveats = new List<Caveat>();
 
+				//TODO BUG: this doesnt catch our attenuated caveats that we need for discharing? 
+
 				foreach (var caveatDto in deserializedDto.Caveats)
 				{
 					if (string.IsNullOrEmpty(caveatDto.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.VerificationId)} was null or empty");

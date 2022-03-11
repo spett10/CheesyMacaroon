@@ -1,4 +1,5 @@
-﻿using MacaroonTestApi.Filter;
+﻿using MacaroonCore;
+using MacaroonTestApi.Filter;
 using MacaroonTestApi.Middleware;
 using MacaroonTestApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,8 @@ namespace MacaroonTestApi.Controllers
 	public class MacaroonController : ControllerBase
 	{
 		private readonly IMacaroonRepository _macaroonRepository;
+
+		private readonly string _location = "https://localhost";
 
 		public MacaroonController(IMacaroonRepository macaroonRepository)
 		{
@@ -41,17 +44,53 @@ namespace MacaroonTestApi.Controllers
 			var authorizingMacaroon = HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString();
 
 			// Prepare the 3rd party caveat for this particular user. The user then has to obtain the discharge macaroon at https://localhost to prove that they fulfill the predicate. 
-			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", "https://localhost");
+			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", _location);
 
 			return Ok(extended);
 		}
 
-		//TODO: issue discharge based on basic authentication, then get username and put in as claim. 
-		[HttpGet("authenticate")]
+		// TODO: make post, the macaroon can be quite large. and sensitive stuff as a get url parameter is nasty - but you shoulndt execute in browser anyways. 
+		// Construct a discharge macaroon based on authentication. 
+		[HttpGet("authenticate/{macaroon}")]
 		[InsecureBasicAuthenticationFilter("Soren", "password1234")]
-		public IActionResult Authenticate()
+		public IActionResult Authenticate(string macaroon)
 		{
-			return Ok("Test");
+			var identity = HttpContext.Items["Identity"] as string;
+
+			var predicateVerifier = new IdentityPredicateVerifier(new List<string>() { identity });
+
+			try
+			{
+				var discharge = _macaroonRepository.IssueDischarge(macaroon, _location, new List<string>(), predicateVerifier);
+
+				return Ok(discharge);
+			}
+			catch (Exception)
+			{
+				return BadRequest($"No caveat in {nameof(macaroon)} for this location '{_location}'.");
+			}
+		}
+
+		private class IdentityPredicateVerifier : IPredicateVerifier
+		{
+			private readonly List<string> _allowedIdentity;
+
+			public IdentityPredicateVerifier(List<string> allowedIdentities)
+			{
+				_allowedIdentity = allowedIdentities;
+			}
+
+			public bool Verify(string predicate)
+			{
+				if(predicate.StartsWith("user ==") && predicate.Length > "user ==".Length)
+				{
+					var identity = predicate.Substring("user ==".Length - 1);
+
+					if (_allowedIdentity.Contains(identity)) return true;
+				}
+
+				return false;
+			}
 		}
 	}
 }

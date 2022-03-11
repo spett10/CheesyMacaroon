@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using MacaroonCore;
 
@@ -69,14 +70,20 @@ namespace MacaroonTestApi.Repositories
 			return macaroon.Serialize();
 		}
 
-		public string IssueDischarge(string caveatid, string location, List<string> firstPartyCaveats, IPredicateVerifier predicateVerifier)
+		public string IssueDischarge(string serializedMacaroon, string location, List<string> firstPartyCaveats, IPredicateVerifier predicateVerifier)
 		{
 			if (!_sharedKeys.ContainsKey(location)) throw new ArgumentException($"No shared key found for {nameof(location)}");
 
-			if (string.IsNullOrEmpty(caveatid)) throw new ArgumentException($"{nameof(caveatid)} was null or empty.");
+			if (string.IsNullOrEmpty(serializedMacaroon)) throw new ArgumentException($"{nameof(serializedMacaroon)} was null or empty.");
+
+			var macaroon = Macaroon.Deserialize(serializedMacaroon, isDischarge: true);
+
+			var locationCaveat = macaroon.Caveats.Where(c => c.Location.Equals(location)).FirstOrDefault();
+
+			if (locationCaveat == null) throw new ArgumentException($"No caveat found for location {location}.");
 
 			var sharedKey = _sharedKeys[location];
-			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(sharedKey, caveatid, location, predicateVerifier);
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(sharedKey, locationCaveat.CaveatId, location, predicateVerifier);
 
 			foreach(var caveat in firstPartyCaveats)
 			{

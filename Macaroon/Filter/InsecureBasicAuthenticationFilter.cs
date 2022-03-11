@@ -47,6 +47,7 @@ namespace MacaroonTestApi.Filter
 
 			if(tokens[0].Equals(_username) && tokens[1].Equals(_password))
 			{
+				context.HttpContext.Items["Identity"] = tokens[0];
 				return;
 			}
 

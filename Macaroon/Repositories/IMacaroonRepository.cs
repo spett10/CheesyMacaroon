@@ -11,6 +11,6 @@ namespace MacaroonTestApi.Repositories
 
 		string ExtendMacaroon(string serializedMacaroon, List<string> firstPartyCaveats, string thirdPartyPredicate, string location);
 
-		string IssueDischarge(string caveatid, string location, List<string> firstPartyCaveats, IPredicateVerifier predicateVerifier);
+		string IssueDischarge(string serializedMacaroon, string location, List<string> firstPartyCaveats, IPredicateVerifier predicateVerifier);
 	}
 }
