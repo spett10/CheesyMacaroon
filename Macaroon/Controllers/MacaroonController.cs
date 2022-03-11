@@ -1,9 +1,9 @@
-﻿using MacaroonTestApi.Repositories;
+﻿using MacaroonTestApi.Filter;
+using MacaroonTestApi.Middleware;
+using MacaroonTestApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace MacaroonTestApi.Controllers
 {
@@ -31,6 +31,18 @@ namespace MacaroonTestApi.Controllers
 			var serializedMacaroon = _macaroonRepository.IssueMacaroon(caveats);
 
 			return Ok(serializedMacaroon);
+		}
+
+		[HttpGet("attenuate/{user}")]
+		[MacaroonAuthorize]
+		public IActionResult Attenuate(string user)
+		{
+			var authorizingMacaroon = HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString();
+
+			// Prepare the 3rd party caveat for this particular user. The user then has to obtain the discharge macaroon at https://localhost to prove that they fulfill the predicate. 
+			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", "https://localhost");
+
+			return Ok(extended);
 		}
 
 		//TODO: issue discharge based on basic authentication, then get username and put in as claim. 

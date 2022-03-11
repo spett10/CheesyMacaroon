@@ -28,20 +28,6 @@ namespace MacaroonTestApi.Controllers
 			_macaroonRepository = macaroonRepository;
 		}
 
-
-		// TODO: move this to another controller? 
-		[HttpGet("attenuate/{user}")]
-		[MacaroonAuthorize]
-		public IActionResult Attenuate(string user)
-		{
-			var authorizingMacaroon = Base64UrlEncoder.Decode(HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString());
-
-			// Prepare the 3rd party caveat for this particular user. The user then has to obtain the discharge macaroon at https://example.com to prove that they fulfill the predicate. 
-			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", "https://example.com");
-
-			return Ok(extended);
-		}
-
 		[HttpGet]
 		[MacaroonAuthorize]
 		public IActionResult Get()

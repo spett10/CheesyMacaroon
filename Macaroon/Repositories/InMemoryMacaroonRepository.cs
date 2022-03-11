@@ -23,7 +23,7 @@ namespace MacaroonTestApi.Repositories
 		{			
 			// You wouldnt hardcode keys like this but we are just testing out
 			_sharedKeys = new Dictionary<string, byte[]>();
-			_sharedKeys.Add("https://example.com", Encode.DefaultStringDecoder("YELLOW SUBMARINEYELLOW SUBMARINE"));
+			_sharedKeys.Add("https://localhost", Encode.DefaultStringDecoder("YELLOW SUBMARINEYELLOW SUBMARINE"));
 		}
 
 		private static byte[] KeyGen()
