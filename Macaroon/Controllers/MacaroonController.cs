@@ -41,7 +41,7 @@ namespace MacaroonTestApi.Controllers
 		[MacaroonAuthorize]
 		public IActionResult Attenuate(string user)
 		{
-			var authorizingMacaroon = HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString();
+			var authorizingMacaroon = GetAuthMacaroonFromContext();
 
 			// Prepare the 3rd party caveat for this particular user. The user then has to obtain the discharge macaroon at https://localhost to prove that they fulfill the predicate. 
 			var extended = _macaroonRepository.ExtendMacaroon(authorizingMacaroon, new List<string>(), $"user == {user}", _location);
@@ -69,6 +69,11 @@ namespace MacaroonTestApi.Controllers
 			{
 				return BadRequest($"No caveat in {nameof(macaroon)} for this location '{_location}'.");
 			}
+		}
+
+		private string GetAuthMacaroonFromContext()
+		{
+			return HttpContext.Items[MacaroonAuthorizationHeaderMiddleware.AuthorizingMacaroonItemName].ToString();
 		}
 
 		private class IdentityPredicateVerifier : IPredicateVerifier

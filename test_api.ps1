@@ -28,6 +28,7 @@ $weatherforecastUrl = $baseUrl + "/weatherforecast"
 $macaroonUrl = $baseUrl + "/macaroon"
 $attenuateUrl = $macaroonUrl + "/attenuate/Soren"
 $authenticateUrl = $macaroonUrl + "/authenticate/"
+$bindUrl = $macaroonUrl + "/bind/"
 
 Write-Host "Calling $weatherforecastUrl without valid macaroon"
 $unauthweatherforecast = Invoke-WebRequest -Uri $weatherforecastUrl -Headers @{ Authorization = "Bearer " }

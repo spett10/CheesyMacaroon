@@ -92,7 +92,9 @@ namespace MacaroonTestApi.Repositories
 
 			dischargeMacaroon.Finalize();
 
-			return dischargeMacaroon.Serialize();
+			var boundDischargeMacaroon = macaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			return boundDischargeMacaroon.Serialize();
 		}
 
 		public bool ValidateMacaroon(string serializedMacaroon, List<string> serializedDischargeMacaroons, IPredicateVerifier predicateVerifier)
