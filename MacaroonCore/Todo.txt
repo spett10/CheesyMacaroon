@@ -1,0 +1,11 @@
+﻿-Some sort of MacaroonFactory or orchestrator, the work currently needed to fiddle with macaroons and discharge is bothersome (see tests).
+Perhaps a propper way to do it will reveal itself when we start using it in our test api. 
+
+-Location is optional and not covered by signature. Should it be covered if it is there? It is not the case in the spec. hm.
+
+
+-The predicate verifier interface might need more context, i.e. access to all predicates at once, not just the current one. Otherwise it has to be pretty stateful. 
+
+
+-the encryption/decryption should be injected/behind an interface. A consumer should be able to have
+the symmetric key in hsm or hardware or whatever they want. 

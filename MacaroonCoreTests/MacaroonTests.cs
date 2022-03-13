@@ -117,7 +117,7 @@ namespace MacaroonCoreTests
 		public void Verify_WrongKey_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			
+
 			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
@@ -195,7 +195,7 @@ namespace MacaroonCoreTests
 		public void Verify_AlterCaveat_ShouldNotVerify()
 		{
 			var key = KeyGen();
-			
+
 			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(key);
 
 			var adminCaveat = new FirstPartyCaveat("user = admin");
@@ -317,7 +317,7 @@ namespace MacaroonCoreTests
 			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
 
 			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
-			
+
 			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
 			var expCaveat = new FirstPartyCaveat("exp = 12345");
 
@@ -347,7 +347,7 @@ namespace MacaroonCoreTests
 			authorisingMacaroon.AddFirstPartyCaveat(serverCaveat);
 			authorisingMacaroon.AddFirstPartyCaveat(lanAsAFactorCaveat);
 
-			/* Create third party caveat */			
+			/* Create third party caveat */
 			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
 			var thirdPartyLocation = "https://example.com";
 			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
@@ -384,7 +384,7 @@ namespace MacaroonCoreTests
 			var thirdPartyLocation = "https://example.com";
 			var thirdPartyCaveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
 			var thirdPartyPredicate = "userID = 1234567890";
-			
+
 			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, thirdPartyCaveatRootKey, thirdPartyLocation, thirdPartyKey, out var userIdMacaroonCaveatId);
 			var userIdDischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, userIdMacaroonCaveatId, thirdPartyLocation, verifierMock.Object);
 
@@ -423,7 +423,7 @@ namespace MacaroonCoreTests
 		}
 
 		[Test]
-		public void Verify_AlterLocation_ShouldNotVerify()
+		public void Verify_AlterDischargeLocation_ShouldNotVerify()
 		{
 			var authorisingRootKey = KeyGen();
 			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey);
@@ -454,10 +454,379 @@ namespace MacaroonCoreTests
 
 			var result = authorisingMacaroon.Validate(sealedDischargeMacaroons, verifierMock.Object, authorisingRootKey);
 			Assert.That(result.IsValid, Is.EqualTo(false));
-			Assert.That(result.MacaroonValidationException, Is.InstanceOf<DischargeMacaroonAuthenticityException>());
+			Assert.That(result.MacaroonValidationException, Is.InstanceOf<MacaroonAuthenticityException>());
+		}
+
+		[Test]
+		public void Verify_MissingDischarge_ShouldNotVerify()
+		{
+			var authorisingRootKey = KeyGen();
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(authorisingRootKey);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroons = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon });
+
+			/* Send in empty list, so we wont find discharge */
+			var result = authorisingMacaroon.Validate(new List<Macaroon>(), verifierMock.Object, authorisingRootKey);
+			Assert.That(result.IsValid, Is.EqualTo(false));
+			Assert.That(result.MacaroonValidationException, Is.InstanceOf<DischargeMacaroonNotFoundException>());
 		}
 
 		#endregion
+
+		#region Serialization
+
+		[Test]
+		public void Serialize_Then_Deserialize_ShouldVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			var authorizingSerialized = authorisingMacaroon.Serialize();
+			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+
+			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.True);
+		}
+
+		[Test]
+		public void Deserialize_AuthorisingMacaroonCaveatAltered_ShouldNotVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			var authorizingJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(authorisingMacaroon.Serialize()));
+			var dischargeSerialized = sealedDischargeMacaroon.Serialize();
+
+			authorizingJson = authorizingJson.Replace("user == admin", "user == anon"); // Alter a caveat
+
+			var deserializedAuthorizing = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(authorizingJson)), isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(dischargeSerialized, isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.False);
+			Assert.That(validationResult.MacaroonValidationException, Is.InstanceOf<MacaroonAuthenticityException>());
+		}
+
+		[Test]
+		public void Deserialize_DischargeMacaroonLocationAltered_ShouldNotVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			var authorizingSerialized = authorisingMacaroon.Serialize();
+			var dischargeJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(sealedDischargeMacaroon.Serialize()));
+
+			dischargeJson = dischargeJson.Replace("https://example.com", "https://myevildomain.com"); // Alter location. It is part of aad for third party caveats. But only in the discharge itself.
+
+			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(dischargeJson)), isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.False);
+			Assert.That(validationResult.MacaroonValidationException, Is.InstanceOf<MacaroonAuthenticityException>());
+		}
+
+		[Test]
+		public void Deserialize_DischargeMacaroonCaveatAltered_ShouldNotVerify()
+		{
+			var rootKey = KeyGen();
+
+			var authorisingMacaroon = Macaroon.CreateAuthorisingMacaroon(rootKey);
+
+			var adminCaveat = new FirstPartyCaveat("user == admin");
+			authorisingMacaroon.AddFirstPartyCaveat(adminCaveat);
+
+			var notbeforeCaveat = new FirstPartyCaveat("nbf 1641223209");
+			authorisingMacaroon.AddFirstPartyCaveat(notbeforeCaveat);
+
+			var verifierMock = new Mock<IPredicateVerifier>();
+			verifierMock.Setup(x => x.Verify(It.IsAny<string>())).Returns(true);
+
+			var thirdPartyKey = KeyGen(); /* This would be a general key exchanged with third party */
+			var thirdPartyLocation = "https://example.com";
+			var caveatRootKey = KeyGen(); /* Key specific to this caveat that we encrypt in the caveat to make it self-contained */
+			var thirdPartyPredicate = "userID = 1234567890";
+
+			authorisingMacaroon.AddThirdPartyCaveat(thirdPartyPredicate, caveatRootKey, thirdPartyLocation, thirdPartyKey, out var caveatId);
+
+			var dischargeMacaroon = Macaroon.CreateDischargeMacaroon(thirdPartyKey, caveatId, thirdPartyLocation, verifierMock.Object);
+
+			var ipCaveat = new FirstPartyCaveat("ip = 192.0.10.168");
+			var expCaveat = new FirstPartyCaveat("exp = 12345");
+
+			dischargeMacaroon.AddFirstPartyCaveat(ipCaveat);
+			dischargeMacaroon.AddFirstPartyCaveat(expCaveat);
+			dischargeMacaroon.Finalize();
+
+			var sealedDischargeMacaroon = authorisingMacaroon.PrepareForRequest(new List<Macaroon> { dischargeMacaroon }).First();
+
+			var authorizingSerialized = authorisingMacaroon.Serialize();
+			var dischargeJson = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(sealedDischargeMacaroon.Serialize()));
+
+			dischargeJson = dischargeJson.Replace("exp = 12345", "exp = 99999");
+
+			var deserializedAuthorizing = Macaroon.Deserialize(authorizingSerialized, isDischarge: false);
+			var deserializedDischarge = Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(dischargeJson)), isDischarge: true);
+
+			var validationResult = deserializedAuthorizing.Validate(new List<Macaroon> { deserializedDischarge }, verifierMock.Object, rootKey);
+			Assert.That(validationResult.IsValid, Is.False);
+			Assert.That(validationResult.MacaroonValidationException, Is.InstanceOf<MacaroonAuthenticityException>());
+		}
+
+		[Test]
+		public void Deserialize_MissingId_ShouldThrow()
+		{
+			var serializedMissingId = @"{
+    ""Location"": null,
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""CaveatId"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+        ""VerificationId"": ""RWmTBRv4INxcHuJOfE\u002BtryjggvZebA0F87pmE4H3uqMT0xVHGDZU8FbVyhelbLoRgdCiayOnlwo9dGXO""
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingId)), isDischarge: false));
+		}
+
+		[Test]
+		public void Deserialize_MissingSignature_ShouldThrow()
+		{
+			var serializedMissingSignature = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""ip = 192.0.10.168"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingSignature)), isDischarge: false));
+		}
+
+		[Test]
+		public void Deserialize_FirstPartyCaveatMissingCaveatId_ShouldThrow()
+		{
+			var serializedMissingFirstPartyCaveatId = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+    ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingFirstPartyCaveatId)), isDischarge: false));
+		}
+
+		[Test]
+		public void Deserialize_FirstPartyCaveatMissingVerificationId_ShouldThrow()
+		{
+			var serializedMissingFirstPatyCaveatVerificationID = @"{
+    ""Location"": ""https://example.com"",
+    ""Id"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""ip = 192.0.10.168"",
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""exp = 12345"",
+        ""VerificationId"": ""0""
+    }],
+    ""Signature"": ""Tpg/PBfxKnQyjW1jsLUq7MCmTHClJVYgK8ttCVJhBdw=""
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingFirstPatyCaveatVerificationID)), isDischarge: false));
+		}
+
+		[Test]
+		public void Deserialize_ThirdPartyCaveatMissingCaveatId_ShouldThrow()
+		{
+			var serializedMissingThirdPartyCaveatId = @"{
+    ""Location"": null,
+    ""Id"": ""0jRladhaS4\u002B0gU59pYgXfQn4nLFnmUpdzBoUNxKfdOo="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""VerificationId"": ""RWmTBRv4INxcHuJOfE\u002BtryjggvZebA0F87pmE4H3uqMT0xVHGDZU8FbVyhelbLoRgdCiayOnlwo9dGXO""
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingThirdPartyCaveatId)), isDischarge: false));
+		}
+
+		[Test]
+		public void Deserialize_ThirdPartyCaveatMissingVerificationId_ShouldThrow()
+		{
+			var serializedMissingThirdPartyCaveatVerificationId = @"{
+    ""Location"": null,
+    ""Id"": ""0jRladhaS4\u002B0gU59pYgXfQn4nLFnmUpdzBoUNxKfdOo="",
+    ""Caveats"": [{
+        ""Location"": null,
+        ""CaveatId"": ""user == admin"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": null,
+        ""CaveatId"": ""nbf 1641223209"",
+        ""VerificationId"": ""0""
+    },
+    {
+        ""Location"": ""https://example.com"",
+        ""CaveatId"": ""MDWA8kqxfTtBoPmQ0bKM0HIZsIYcpFoLJvj3UXIj76Tp0nMgd69CQuLOl8QrN/ISeI4YAvWWUjDrxc3gwGeG\u002BWa\u002BoT5v20x6bQlQYmdUgw=="",
+    }],
+    ""Signature"": ""1JH5wR2UoiNwKXqdlsI1375B6CBdnLWoOzC3FvUFNew=""
+}"
+;
+			//TODO: check on the exception message to assert we threw the right place. 
+			Assert.Throws<MacaroonDeserializationException>(() => Macaroon.Deserialize(Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serializedMissingThirdPartyCaveatVerificationId)), isDischarge: false));
+		}
+
+		#endregion Serialization
 
 
 		#region Helpers

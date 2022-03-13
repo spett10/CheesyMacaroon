@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using MacaroonTestApi.Filter;
+using MacaroonTestApi.Middleware;
+using MacaroonTestApi.Repositories;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
-namespace Macaroon.Controllers
+namespace MacaroonTestApi.Controllers
 {
 	[ApiController]
 	[Route("[controller]")]
@@ -17,23 +20,26 @@ namespace Macaroon.Controllers
 		};
 
 		private readonly ILogger<WeatherForecastController> _logger;
+		private readonly IMacaroonRepository _macaroonRepository;
 
-		public WeatherForecastController(ILogger<WeatherForecastController> logger)
+		public WeatherForecastController(ILogger<WeatherForecastController> logger, IMacaroonRepository macaroonRepository)
 		{
 			_logger = logger;
+			_macaroonRepository = macaroonRepository;
 		}
 
 		[HttpGet]
-		public IEnumerable<WeatherForecast> Get()
+		[MacaroonAuthorize]
+		public IActionResult Get()
 		{
 			var rng = new Random();
-			return Enumerable.Range(1, 5).Select(index => new WeatherForecast
+			return Ok(Enumerable.Range(1, 5).Select(index => new WeatherForecast
 			{
 				Date = DateTime.Now.AddDays(index),
 				TemperatureC = rng.Next(-20, 55),
 				Summary = Summaries[rng.Next(Summaries.Length)]
 			})
-			.ToArray();
+			.ToArray());
 		}
 	}
 }

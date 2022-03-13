@@ -4,6 +4,9 @@ using System.Security.Cryptography;
 using System;
 using MacaroonCore.Model;
 using MacaroonCore.Exceptions;
+using System.Text.Json;
+using MacaroonCore.Dto;
+using System.Text;
 
 namespace MacaroonCore
 {
@@ -16,8 +19,20 @@ namespace MacaroonCore
 
 		public bool Discharge { get; set; }
 
+		public byte[] IdPayload
+		{
+			get
+			{
+				return Encode.DefaultByteDecoder(Id);
+			}
+		}
+
 		private const int IdSizeInBytes = 32;
 
+		internal Macaroon()
+		{
+
+		}
 
 		public static Macaroon CreateAuthorisingMacaroon(byte[] key, string location = null)
 		{
@@ -51,16 +66,6 @@ namespace MacaroonCore
 
 			using var hmac = CreateHMAC(key);
 			Signature = hmac.ComputeHash(IdPayload);
-
-
-		}
-
-		public byte[] IdPayload
-		{
-			get
-			{
-				return Encode.DefaultByteDecoder(Id);
-			}
 		}
 
 		private Macaroon AddCaveatHelper(Caveat caveat)
@@ -112,17 +117,21 @@ namespace MacaroonCore
 			return this;
 		}
 
+		/// <summary>
+		/// The end-user should bind their discharge macaroons to their authorizing macaroon using this function, before sending all macaroons for an access request at a target service. 
+		/// 
+		/// Otherwise, if you mistakenly send your discharge macaroon to someone, that has a macaroon based on the same root key,
+		/// they can freely re-use your discharge macaroons, across any and all macaroos that embed the corresponding third-party caveat identifier
+		/// that uses the same root key.
+		///
+		/// This would mean they could for example impersonate you, if your 3rd party caveat is the result of you authenticating at a 3rd party IDP.
+		/// 
+		/// This function prevents that by binding discharge macaroons to the specific authorizing macaroon. 
+		/// </summary>
+		/// <param name="dischargeMacaroons"></param>
+		/// <returns></returns>
 		public List<Macaroon> PrepareForRequest(List<Macaroon> dischargeMacaroons)
 		{
-			/* We must bind each discharge macaroon to the authorizing macaroon. 
-			 * Otherwise, if you mistakenly send your discharge macaroon to someone, that has a macaroon based on the same root key,
-			 * they can freely re-use your discharge macaroons, across any and all macaroos that embed the corresponding third-party caveat identifier
-			 * that uses the same root key. 
-			 * 
-			 * This would mean they could for example impersonate you, if your 3rd party caveat is the result of you authenticating at a 3rd party IDP.
-			 *  
-			 * */
-
 			var sealedMacaroons = new List<Macaroon>();
 
 			foreach (var dischargeMacaroon in dischargeMacaroons)
@@ -203,10 +212,9 @@ namespace MacaroonCore
 						return new MacaroonValidationResult
 						{
 							IsValid = false,
-							MacaroonValidationException = new DischargeMacaroonAuthenticityException("Decryption error", this.Id) //TODO: does this leak too much? 
+							MacaroonValidationException = new MacaroonAuthenticityException("Macaroon not authentic", this.Id) //TODO: does this leak too much? 
 						};
 					}
-
 
 					// Recursively verify the discharge macaroon. It itself could have third party caveats, and on and on we go. 
 					// A discharge macaroon itself can have other 3rd party caveats, and then the discharge macaroon should authorize the next level discharge.
@@ -247,6 +255,82 @@ namespace MacaroonCore
 			};
 		}
 
+		public string Serialize()
+		{
+			var dto = new MacaroonDto()
+			{
+				Id = this.Id,
+				Caveats = this.Caveats.Select(x => x.ToDto()).ToList(),
+				Signature = this.Signature,
+				Location = this.Location
+			};
 
+			var serialized = JsonSerializer.Serialize(dto, new JsonSerializerOptions()
+			{
+				DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+			});
+
+			return Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serialized));
+		}
+
+		public static Macaroon Deserialize(string b64urlencoded, bool isDischarge)
+		{
+			try
+			{
+				var json = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(b64urlencoded));
+
+				var deserializedDto = JsonSerializer.Deserialize<MacaroonDto>(json);
+
+				if (string.IsNullOrEmpty(deserializedDto.Id)) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Id)} was null or empty");
+
+				if (deserializedDto.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Signature)} was null or empty");
+
+				var deserialized = new Macaroon()
+				{
+					Discharge = isDischarge, //TODO: its annoying that caller has to know - what if they specify it wrong? Validation will then fail since we treat the signature incorrectly. But can it create harm somehow? 
+					Location = deserializedDto.Location,
+					Id = deserializedDto.Id,
+					Signature = deserializedDto.Signature,
+				};
+
+				var caveats = new List<Caveat>();
+
+				//TODO BUG: this doesnt catch our attenuated caveats that we need for discharing? 
+
+				foreach (var caveatDto in deserializedDto.Caveats)
+				{
+					if (string.IsNullOrEmpty(caveatDto.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.VerificationId)} was null or empty");
+
+					if (string.IsNullOrEmpty(caveatDto.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.CaveatId)} was null or empty");
+
+					if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveatDto.VerificationId))
+					{
+						caveats.Add(new FirstPartyCaveat()
+						{
+							CaveatId = caveatDto.CaveatId,
+							Location = caveatDto.Location,
+							VerificationId = caveatDto.VerificationId
+						});
+					}
+					else
+					{
+						caveats.Add(new ThirdPartyCaveat()
+						{
+							CaveatId = caveatDto.CaveatId,
+							Location = caveatDto.Location,
+							VerificationId = caveatDto.VerificationId
+						});
+					}
+				}
+
+				deserialized.Caveats = caveats;
+
+				return deserialized;
+			}
+			catch (Exception e)
+			{
+				throw new MacaroonDeserializationException($"Failed to deserialize macaroon", e);
+			}
+		}
 	}
 }
