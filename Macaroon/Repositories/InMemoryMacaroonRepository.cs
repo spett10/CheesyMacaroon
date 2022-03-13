@@ -78,7 +78,7 @@ namespace MacaroonTestApi.Repositories
 
 			var macaroon = Macaroon.Deserialize(serializedMacaroon, isDischarge: true);
 
-			var locationCaveat = macaroon.Caveats.Where(c => c.Location.Equals(location)).FirstOrDefault();
+			var locationCaveat = macaroon.Caveats.Where(c => c.Location != null && c.Location.Equals(location)).FirstOrDefault();
 
 			if (locationCaveat == null) throw new ArgumentException($"No caveat found for location {location}.");
 
@@ -89,6 +89,8 @@ namespace MacaroonTestApi.Repositories
 			{
 				dischargeMacaroon.AddFirstPartyCaveat(new FirstPartyCaveat(caveat));
 			}
+
+			dischargeMacaroon.Finalize();
 
 			return dischargeMacaroon.Serialize();
 		}

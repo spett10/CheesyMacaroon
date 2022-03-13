@@ -27,6 +27,7 @@ function FromBase64Url([string]$str) {
 $weatherforecastUrl = $baseUrl + "/weatherforecast"
 $macaroonUrl = $baseUrl + "/macaroon"
 $attenuateUrl = $macaroonUrl + "/attenuate/Soren"
+$authenticateUrl = $macaroonUrl + "/authenticate/"
 
 Write-Host "Calling $weatherforecastUrl without valid macaroon"
 $unauthweatherforecast = Invoke-WebRequest -Uri $weatherforecastUrl -Headers @{ Authorization = "Bearer " }
@@ -57,4 +58,11 @@ Write-Host "Calling $weatherforecastUrl with attenuated macaroon, but no dischar
 $authHeader = @{ Authorization = "Bearer " + $attenuatedMacaroon }
 $weatherforecast = Invoke-WebRequest -Uri $weatherforecastUrl -Headers $authHeader
 
-
+Write-Host "Trying to authenticate at $authenticateUrl to obtain discharge"
+$basicAuth = ToBase64 'Soren:password1234'
+$basicAuthHeader = @{ Authorization = "Basic " + $basicAuth }
+$discharge = (Invoke-WebRequest -Uri ($authenticateUrl + $attenuatedMacaroon) -Headers $basicAuthHeader).Content
+Write-Host "Got Discharge Macaroon: " $discharge
+Write-Host ""
+Write-Host (FromBase64Url $discharge)
+Write-Host ""

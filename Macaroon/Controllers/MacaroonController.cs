@@ -84,7 +84,7 @@ namespace MacaroonTestApi.Controllers
 			{
 				if(predicate.StartsWith("user ==") && predicate.Length > "user ==".Length)
 				{
-					var identity = predicate.Substring("user ==".Length - 1);
+					var identity = predicate.Substring("user ==".Length).Trim();
 
 					if (_allowedIdentity.Contains(identity)) return true;
 				}
