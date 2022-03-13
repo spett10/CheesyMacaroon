@@ -67,3 +67,10 @@ Write-Host "Got Discharge Macaroon: " $discharge
 Write-Host ""
 Write-Host (FromBase64Url $discharge)
 Write-Host ""
+
+
+Write-Host "Calling weather forecast at $weatherforecastUrl with attenuated and discharge macaroon" 
+$authHeaderAllMacaroons = @{ Authorization = "Bearer " + $attenuatedMacaroon + ", " + $discharge }
+$weatherforecast = (Invoke-WebRequest -Uri $weatherforecastUrl -Header $authHeaderAllMacaroons)
+Write-Host "Https Status Code: " $weatherforecast.StatusCode
+Write-Host ""

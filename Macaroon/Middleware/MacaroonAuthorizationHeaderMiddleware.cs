@@ -28,7 +28,7 @@ namespace MacaroonTestApi.Middleware
 				{
 					if(headerValue.StartsWith("Bearer ") && headerValue.Length > "Bearer ".Length)
 					{
-						var tokens = headerValue.Split(" ").Skip(1).ToList();
+						var tokens = headerValue.Substring("Bearer ".Length).Split(", ").ToList();
 
 						if(tokens.Count >= 1)
 						{
@@ -38,7 +38,7 @@ namespace MacaroonTestApi.Middleware
 
 							// Rest, if any, are discharges
 							var discharges = tokens.Skip(1).ToList();
-							if(discharges.Count > 1)
+							if(discharges.Count >= 1)
 							{
 								context.Items.Add(DischargeMacaroonsItemName, discharges);
 							}
