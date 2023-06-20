@@ -2,9 +2,9 @@
 
 namespace MacaroonCore.Model
 {
-	public class MacaroonValidationResult
-	{
-		public bool IsValid { get; set; }
-		public MacaroonValidationException MacaroonValidationException { get; set; }
-	}
+    public class MacaroonValidationResult
+    {
+        public bool IsValid { get; set; }
+        public MacaroonValidationException MacaroonValidationException { get; set; }
+    }
 }

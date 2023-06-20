@@ -5,57 +5,57 @@ using System.Threading.Tasks;
 
 namespace MacaroonTestApi.Middleware
 {
-	public class MacaroonAuthorizationHeaderMiddleware
-	{
-		public const string AuthorizingMacaroonItemName = "AuthMacaroon";
-		public const string DischargeMacaroonsItemName = "DischargeMacaroons";
+    public class MacaroonAuthorizationHeaderMiddleware
+    {
+        public const string AuthorizingMacaroonItemName = "AuthMacaroon";
+        public const string DischargeMacaroonsItemName = "DischargeMacaroons";
 
-		private readonly RequestDelegate _next;
-		public MacaroonAuthorizationHeaderMiddleware(RequestDelegate next)
-		{
-			_next = next;
-		}
+        private readonly RequestDelegate _next;
+        public MacaroonAuthorizationHeaderMiddleware(RequestDelegate next)
+        {
+            _next = next;
+        }
 
-		public async Task InvokeAsync(HttpContext context)
-		{
-			var authHeader = context.Request.Headers["Authorization"];
+        public async Task InvokeAsync(HttpContext context)
+        {
+            var authHeader = context.Request.Headers["Authorization"];
 
-			if(authHeader.Count == 1)
-			{
-				var headerValue = authHeader[0];
+            if (authHeader.Count == 1)
+            {
+                var headerValue = authHeader[0];
 
-				if (!string.IsNullOrEmpty(headerValue))
-				{
-					if(headerValue.StartsWith("Bearer ") && headerValue.Length > "Bearer ".Length)
-					{
-						var tokens = headerValue.Substring("Bearer ".Length).Split(", ").ToList();
+                if (!string.IsNullOrEmpty(headerValue))
+                {
+                    if (headerValue.StartsWith("Bearer ") && headerValue.Length > "Bearer ".Length)
+                    {
+                        var tokens = headerValue.Substring("Bearer ".Length).Split(", ").ToList();
 
-						if(tokens.Count >= 1)
-						{
-							// Auth is the first by convention
-							var authorizingMacaroon = tokens[0];
-							context.Items.Add(AuthorizingMacaroonItemName, authorizingMacaroon);
+                        if (tokens.Count >= 1)
+                        {
+                            // Auth is the first by convention
+                            var authorizingMacaroon = tokens[0];
+                            context.Items.Add(AuthorizingMacaroonItemName, authorizingMacaroon);
 
-							// Rest, if any, are discharges
-							var discharges = tokens.Skip(1).ToList();
-							if(discharges.Count >= 1)
-							{
-								context.Items.Add(DischargeMacaroonsItemName, discharges);
-							}
-						}
-					}
-				}
-			}
+                            // Rest, if any, are discharges
+                            var discharges = tokens.Skip(1).ToList();
+                            if (discharges.Count >= 1)
+                            {
+                                context.Items.Add(DischargeMacaroonsItemName, discharges);
+                            }
+                        }
+                    }
+                }
+            }
 
-			await _next(context);
-		}
-	}
+            await _next(context);
+        }
+    }
 
-	public static class AuthHeaderMiddlewareExtensions
-	{
-		public static IApplicationBuilder UseAuthHeader(this IApplicationBuilder builder)
-		{
-			return builder.UseMiddleware<MacaroonAuthorizationHeaderMiddleware>();
-		}
-	}
+    public static class AuthHeaderMiddlewareExtensions
+    {
+        public static IApplicationBuilder UseAuthHeader(this IApplicationBuilder builder)
+        {
+            return builder.UseMiddleware<MacaroonAuthorizationHeaderMiddleware>();
+        }
+    }
 }
