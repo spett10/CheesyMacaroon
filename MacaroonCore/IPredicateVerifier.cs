@@ -1,7 +1,7 @@
 ﻿namespace MacaroonCore
 {
-	public interface IPredicateVerifier
-	{
-		bool Verify(string predicate);
-	}
+    public interface IPredicateVerifier
+    {
+        bool Verify(string predicate);
+    }
 }
