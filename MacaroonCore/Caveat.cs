@@ -29,5 +29,27 @@ namespace MacaroonCore
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             });
         }
+
+        public static Caveat Create(Caveat caveat)
+        {
+            if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveat.VerificationId))
+            {
+                return new FirstPartyCaveat()
+                {
+                    CaveatId = caveat.CaveatId,
+                    Location = caveat.Location,
+                    VerificationId = caveat.VerificationId
+                };
+            }
+            else
+            {
+                return new ThirdPartyCaveat()
+                {
+                    CaveatId = caveat.CaveatId,
+                    Location = caveat.Location,
+                    VerificationId = caveat.VerificationId
+                };
+            }
+        }
     }
 }

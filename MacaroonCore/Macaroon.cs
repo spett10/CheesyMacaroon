@@ -35,6 +35,8 @@ namespace MacaroonCore
 
         }
 
+        // TODO: doing this for transportation means an adversary can alter the json to their hearts content and inject stuff,
+        // our signature only covers the concept of the macaroon itself in memory, not the json structure we serialize it to. 
         public string ToJson()
         {
             return JsonSerializer.Serialize(this, new JsonSerializerOptions()
@@ -273,6 +275,9 @@ namespace MacaroonCore
         {
             try
             {
+                //TODO: there is no schema validation, and the signature does not cover json, only the fields values themselves for the exact fields of a macaroon.
+                // So an adversary can inject their own stuff in the overall json without us failing.
+
                 var json = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(b64urlencoded));
 
                 var deserialized = JsonSerializer.Deserialize<Macaroon>(json);
@@ -293,25 +298,7 @@ namespace MacaroonCore
 
                     if (string.IsNullOrEmpty(caveat.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveat.CaveatId)} was null or empty");
 
-                    // TODO: some sort of factory pattern to hide this in would probably be nicer, that just returns a caveat for us to put in the list. 
-                    if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveat.VerificationId))
-                    {
-                        caveats.Add(new FirstPartyCaveat()
-                        {
-                            CaveatId = caveat.CaveatId,
-                            Location = caveat.Location,
-                            VerificationId = caveat.VerificationId
-                        });
-                    }
-                    else
-                    {
-                        caveats.Add(new ThirdPartyCaveat()
-                        {
-                            CaveatId = caveat.CaveatId,
-                            Location = caveat.Location,
-                            VerificationId = caveat.VerificationId
-                        });
-                    }
+                    caveats.Add(Caveat.Create(caveat));
                 }
 
                 deserialized.Caveats = caveats;

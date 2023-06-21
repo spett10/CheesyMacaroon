@@ -9,3 +9,5 @@ Perhaps a propper way to do it will reveal itself when we start using it in our 
 
 -the encryption/decryption should be injected/behind an interface. A consumer should be able to have
 the symmetric key in hsm or hardware or whatever they want. 
+
+-the json isnt covered by the signature, cant an adversary mess around with everything in arbitrary ways? 
