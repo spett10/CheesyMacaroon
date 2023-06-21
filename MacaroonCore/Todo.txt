@@ -10,4 +10,16 @@ Perhaps a propper way to do it will reveal itself when we start using it in our 
 -the encryption/decryption should be injected/behind an interface. A consumer should be able to have
 the symmetric key in hsm or hardware or whatever they want. 
 
--the json isnt covered by the signature, cant an adversary mess around with everything in arbitrary ways? 
+-the json isnt covered by the signature, cant an adversary mess around with everything in arbitrary ways? Yes they can.
+    If they alter the fields in the json we care about, the signatures will fail - they cannot inject their own signature/mac without breaking the mac scheme.
+    If it was asymmetric instead, they probably could?
+
+        fixes:
+               "scehma validation" of the json, if there are any more fields than exactly what we expect, we should throw. Does not seem to be out of the box for 
+               System.Text.Json though..
+
+                    Workaround? https://stackoverflow.com/questions/74995241/asp-net-core-system-text-json-how-to-reject-unknown-properties-in-payload
+                        The second answer, with the dictionary 
+
+               Make an implicit format that is canocalized as raw bytes then base64url encoded. Then the signature should cover the raw bytes AND the canocalization in front (prepended lenghts).
+               Then its not human readable which is a shame for debugging. 
