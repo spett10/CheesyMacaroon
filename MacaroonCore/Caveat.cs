@@ -1,25 +1,33 @@
-﻿using MacaroonCore.Dto;
+﻿using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MacaroonCore
 {
-    public abstract class Caveat
+    // TODO: do we even need this when it is no longer abstract? We could have first party at the bottom, then thirdparty inherit from that? 
+    public class Caveat
     {
         public string Location { get; set; }
         public string CaveatId { get; set; }
         public string VerificationId { get; set; }
 
-        public abstract byte[] Payload();
+        public virtual byte[] Payload() { throw new NotImplementedException(); }
 
-        public abstract bool IsFirstPartyCaveat { get; }
+        [JsonIgnore]
+        public virtual bool IsFirstPartyCaveat { get; }
 
-        public CaveatDto ToDto()
+        [JsonConstructor]
+        public Caveat()
         {
-            return new CaveatDto()
+
+        }
+
+        public string ToJson()
+        {
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions()
             {
-                Location = this.Location,
-                CaveatId = this.CaveatId,
-                VerificationId = this.VerificationId
-            };
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
         }
     }
 }

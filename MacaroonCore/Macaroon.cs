@@ -1,12 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using MacaroonCore.Exceptions;
+using MacaroonCore.Model;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
-using System;
-using MacaroonCore.Model;
-using MacaroonCore.Exceptions;
 using System.Text.Json;
-using MacaroonCore.Dto;
-using System.Text;
+using System.Text.Json.Serialization;
 
 namespace MacaroonCore
 {
@@ -17,7 +16,8 @@ namespace MacaroonCore
         public List<Caveat> Caveats { get; set; }
         public byte[] Signature { get; set; }
 
-        public bool Discharge { get; set; }
+        [JsonIgnore]
+        public bool Discharge { get; set; } 
 
         public byte[] IdPayload
         {
@@ -29,9 +29,18 @@ namespace MacaroonCore
 
         private const int IdSizeInBytes = 32;
 
-        internal Macaroon()
+        [JsonConstructor]
+        public Macaroon()
         {
 
+        }
+
+        public string ToJson()
+        {
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions()
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            });
         }
 
         public static Macaroon CreateAuthorisingMacaroon(byte[] key, string location = null)
@@ -257,20 +266,7 @@ namespace MacaroonCore
 
         public string Serialize()
         {
-            var dto = new MacaroonDto()
-            {
-                Id = this.Id,
-                Caveats = this.Caveats.Select(x => x.ToDto()).ToList(),
-                Signature = this.Signature,
-                Location = this.Location
-            };
-
-            var serialized = JsonSerializer.Serialize(dto, new JsonSerializerOptions()
-            {
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-            });
-
-            return Encode.Base64UrlEncode(Encode.DefaultStringDecoder(serialized));
+            return Encode.Base64UrlEncode(Encode.DefaultStringDecoder(ToJson()));
         }
 
         public static Macaroon Deserialize(string b64urlencoded, bool isDischarge)
@@ -279,46 +275,41 @@ namespace MacaroonCore
             {
                 var json = Encode.DefaultStringEncoder(Encode.Base64UrlDecode(b64urlencoded));
 
-                var deserializedDto = JsonSerializer.Deserialize<MacaroonDto>(json);
+                var deserialized = JsonSerializer.Deserialize<Macaroon>(json);
 
-                if (string.IsNullOrEmpty(deserializedDto.Id)) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Id)} was null or empty");
+                if (string.IsNullOrEmpty(deserialized.Id)) throw new MacaroonDeserializationException($"{nameof(deserialized.Id)} was null or empty");
 
-                if (deserializedDto.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserializedDto.Signature)} was null or empty");
+                if (deserialized.Signature.Length == 0) throw new MacaroonDeserializationException($"{nameof(deserialized.Signature)} was null or empty");
 
-                var deserialized = new Macaroon()
-                {
-                    Discharge = isDischarge, //TODO: its annoying that caller has to know - what if they specify it wrong? Validation will then fail since we treat the signature incorrectly. But can it create harm somehow? 
-                    Location = deserializedDto.Location,
-                    Id = deserializedDto.Id,
-                    Signature = deserializedDto.Signature,
-                };
+                deserialized.Discharge = isDischarge; // TODO: annoying that caller has to know. Do we actually serialize it currently? Its not covered by signature or part of spec. 
 
                 var caveats = new List<Caveat>();
 
                 //TODO BUG: this doesnt catch our attenuated caveats that we need for discharing? 
 
-                foreach (var caveatDto in deserializedDto.Caveats)
+                foreach (var caveat in deserialized.Caveats)
                 {
-                    if (string.IsNullOrEmpty(caveatDto.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.VerificationId)} was null or empty");
+                    if (string.IsNullOrEmpty(caveat.VerificationId)) throw new MacaroonDeserializationException($"{nameof(caveat.VerificationId)} was null or empty");
 
-                    if (string.IsNullOrEmpty(caveatDto.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveatDto.CaveatId)} was null or empty");
+                    if (string.IsNullOrEmpty(caveat.CaveatId)) throw new MacaroonDeserializationException($"{nameof(caveat.CaveatId)} was null or empty");
 
-                    if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveatDto.VerificationId))
+                    // TODO: some sort of factory pattern to hide this in would probably be nicer, that just returns a caveat for us to put in the list. 
+                    if (FirstPartyCaveat.VerificationIdIndicatesFirstPartyCaveat(caveat.VerificationId))
                     {
                         caveats.Add(new FirstPartyCaveat()
                         {
-                            CaveatId = caveatDto.CaveatId,
-                            Location = caveatDto.Location,
-                            VerificationId = caveatDto.VerificationId
+                            CaveatId = caveat.CaveatId,
+                            Location = caveat.Location,
+                            VerificationId = caveat.VerificationId
                         });
                     }
                     else
                     {
                         caveats.Add(new ThirdPartyCaveat()
                         {
-                            CaveatId = caveatDto.CaveatId,
-                            Location = caveatDto.Location,
-                            VerificationId = caveatDto.VerificationId
+                            CaveatId = caveat.CaveatId,
+                            Location = caveat.Location,
+                            VerificationId = caveat.VerificationId
                         });
                     }
                 }
