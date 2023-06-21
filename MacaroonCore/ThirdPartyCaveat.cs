@@ -39,6 +39,9 @@ namespace MacaroonCore
 
         public override bool IsFirstPartyCaveat { get { return false; } }
 
-        public override byte[] Payload() => Encode.DefaultByteDecoder(VerificationId).Concat(Encode.DefaultByteDecoder(CaveatId)).ToArray();
+        public override byte[] Payload() => 
+                                Encode.DefaultByteDecoder(VerificationId)
+                                .Concat(Encode.DefaultByteDecoder(CaveatId))
+                                .ToArray();
     }
 }
